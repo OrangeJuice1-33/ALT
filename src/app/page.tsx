@@ -1,65 +1,154 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { motion } from "framer-motion";
+import Link from "next/link";
+
+const letterVariants = {
+  hiddenLeft: { opacity: 0, x: -120 },
+  hiddenBottom: { opacity: 0, y: 120 },
+  hiddenRight: { opacity: 0, x: 120 },
+  visible: (i: number) => ({
+    opacity: 1,
+    x: 0,
+    y: 0,
+    transition: {
+      delay: 0.2 + i * 0.15,
+      duration: 0.7,
+      ease: [0.23, 1, 0.32, 1],
+    },
+  }),
+};
+
+export default function HomePage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#0b1027_0%,#050316_45%,black_100%)] text-white flex flex-col">
+
+      {/* HERO SECTION */}
+      <main className="flex-1">
+        <section className="max-w-6xl mx-auto px-4 pt-16 md:pt-24 pb-16 flex flex-col items-center text-center">
+
+          {/* Animated ALT Logo */}
+          <div className="relative mb-6 md:mb-8">
+            <div className="flex gap-4 md:gap-6 items-end justify-center">
+              <motion.span custom={0} initial="hiddenLeft" animate="visible"
+                variants={letterVariants}
+                className="text-6xl md:text-7xl lg:text-8xl font-extrabold drop-shadow-[0_0_35px_rgba(56,189,248,0.9)]">
+                A
+              </motion.span>
+
+              <motion.span custom={1} initial="hiddenBottom" animate="visible"
+                variants={letterVariants}
+                className="text-6xl md:text-7xl lg:text-8xl font-extrabold drop-shadow-[0_0_35px_rgba(52,211,153,0.9)]">
+                L
+              </motion.span>
+
+              <motion.span custom={2} initial="hiddenRight" animate="visible"
+                variants={letterVariants}
+                className="text-6xl md:text-7xl lg:text-8xl font-extrabold drop-shadow-[0_0_35px_rgba(251,191,36,0.9)]">
+                T
+              </motion.span>
+            </div>
+
+            <div className="pointer-events-none absolute inset-0 -z-10 blur-3xl opacity-70">
+              <div className="w-40 h-40 md:w-60 md:h-60 bg-[radial-gradient(circle,rgba(59,130,246,0.7)_0%,transparent_60%)] mx-auto" />
+            </div>
+          </div>
+
+          {/* Tagline */}
+          <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 0.95, y: 0 }}
+            transition={{ delay: 0.6, duration: 0.7 }}
+            className="text-lg md:text-2xl text-zinc-200 mb-3 md:mb-4">
+            <span className="block mb-1 text-zinc-300">The future of booking.</span>
+            <span className="block font-semibold text-transparent bg-clip-text bg-linear-to-r from-sky-400 via-emerald-300 to-amber-300">
+              Book your experience.
+            </span>
+          </motion.p>
+
+          {/* CTA */}
+          <Link href="/search">
+            <motion.button initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.9, duration: 0.5 }}
+              className="mt-4 inline-flex items-center gap-2 px-6 md:px-8 py-2.5 md:py-3 rounded-full bg-linear-to-r from-sky-500 via-emerald-400 to-amber-300 text-black font-semibold text-sm md:text-base shadow-lg hover:shadow-xl transition">
+              Book your experience <span className="text-lg">↗</span>
+            </motion.button>
+          </Link>
+
+          {/* Subtext */}
+          <p className="mt-4 max-w-xl text-xs md:text-sm text-zinc-400">
+            Discover venues, decorators, caterers, DJs and photographers on one seamless platform.
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+
+          {/* Scroll indicator */}
+          <div className="mt-12 flex flex-col items-center gap-2 text-xs text-zinc-500">
+            <span>Scroll to see what’s new</span>
+            <div className="w-px h-10 bg-linear-to-b from-zinc-500/60 to-transparent relative overflow-hidden">
+              <motion.div className="absolute inset-x-0 top-0 h-6 bg-linear-to-b from-white/70 to-transparent"
+                animate={{ y: [0, 32] }} transition={{ repeat: Infinity, duration: 1.4 }} />
+            </div>
+          </div>
+
+        </section>
+
+        {/* FEED SECTION */}
+        <section className="border-t border-white/10 bg-black/40">
+          <div className="max-w-5xl mx-auto px-4 py-10 md:py-14">
+
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-6">
+              <div>
+                <h2 className="text-xl md:text-2xl font-semibold">Tailored for you</h2>
+                <p className="text-sm text-zinc-400 mt-1">
+                  A quick snapshot of what's happening on ALT right now.
+                </p>
+              </div>
+
+              <button className="px-4 py-1.5 rounded-full border border-zinc-700 text-xs text-zinc-200 hover:border-zinc-400 hover:text-white transition">
+                Refresh updates
+              </button>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4">
+                <span className="text-xs uppercase tracking-wide text-amber-300">For you</span>
+                <p className="text-sm text-zinc-100 mt-1">
+                  Weekends are filling up fast — lock in a venue now.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4">
+                <span className="text-xs uppercase tracking-wide text-sky-300">Popular this week</span>
+                <p className="text-sm text-zinc-100 mt-1">
+                  Rooftop & poolside venues are trending now.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4">
+                <span className="text-xs uppercase tracking-wide text-emerald-300">Host with ALT</span>
+                <p className="text-sm text-zinc-100 mt-1">
+                  List once. Sync everywhere. Bookings made easy.
+                </p>
+                <Link href="/add-venue" className="mt-2 inline-flex text-xs text-emerald-300 underline hover:text-emerald-200">
+                  Add your venue →
+                </Link>
+              </div>
+
+            </div>
+          </div>
+        </section>
       </main>
+
+      {/* FOOTER */}
+      <footer className="border-t border-white/10 bg-black/80">
+        <div className="max-w-5xl mx-auto px-4 py-4 flex flex-col md:flex-row items-center justify-between text-[11px] text-zinc-400">
+          <span>© 2035 ALT. All rights reserved.</span>
+          <div className="flex gap-3">
+            <button className="hover:text-zinc-200">Terms</button>
+            <button className="hover:text-zinc-200">Privacy</button>
+            <button className="hover:text-zinc-200">Contact</button>
+          </div>
+        </div>
+      </footer>
+
     </div>
   );
 }
