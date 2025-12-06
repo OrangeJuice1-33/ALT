@@ -1,6 +1,7 @@
 // src/data/sampleListings.ts
 
 export type Listing = {
+  rating: number; // duplicate of avg_rating for convenience
   id: string;
   name: string;
   category: "Venue" | "Decorator" | "Caterer" | "DJ" | "Photographer";
@@ -22,7 +23,7 @@ export type Listing = {
   // ⭐ New fields
   bookingsCount: number;
   popularity_score: number;
-  avg_rating: number;     // 0–5 stars
+  avg_rating: number; // 0–5 stars
   reviewsCount: number;
 };
 
@@ -73,6 +74,8 @@ function pushListing(
   subtype: string,
   city: string
 ) {
+  const avg = parseFloat((Math.random() * 2 + 3).toFixed(1)); // 3.0 – 5.0
+
   sample.push({
     id: `${category.toLowerCase()}-${i}`,
     name: `${subtype} ${category} ${i}`,
@@ -97,7 +100,8 @@ function pushListing(
     // POPULARITY + RATING
     bookingsCount: random(20, 500),
     popularity_score: random(10, 500),
-    avg_rating: parseFloat((Math.random() * 2 + 3).toFixed(1)), // 3.0 to 5.0
+    avg_rating: avg,
+    rating: avg, // keep in sync with avg_rating
     reviewsCount: random(5, 200),
   });
 }
@@ -138,16 +142,46 @@ let idCounter = 1;
 const cities = ["Mumbai", "Delhi", "Bengaluru", "Chennai", "Goa", "Pune"];
 
 for (let i = 0; i < 6; i++) {
-  pushListing(idCounter++, "Venue", subtypesVenue[i % subtypesVenue.length], cities[i]);
-  pushListing(idCounter++, "Decorator", subtypesDecorator[i % subtypesDecorator.length], cities[i]);
-  pushListing(idCounter++, "Caterer", subtypesCaterer[i % subtypesCaterer.length], cities[i]);
-  pushListing(idCounter++, "DJ", subtypesDJ[i % subtypesDJ.length], cities[i]);
-  pushListing(idCounter++, "Photographer", subtypesPhotog[i % subtypesPhotog.length], cities[i]);
+  pushListing(
+    idCounter++,
+    "Venue",
+    subtypesVenue[i % subtypesVenue.length],
+    cities[i]
+  );
+  pushListing(
+    idCounter++,
+    "Decorator",
+    subtypesDecorator[i % subtypesDecorator.length],
+    cities[i]
+  );
+  pushListing(
+    idCounter++,
+    "Caterer",
+    subtypesCaterer[i % subtypesCaterer.length],
+    cities[i]
+  );
+  pushListing(
+    idCounter++,
+    "DJ",
+    subtypesDJ[i % subtypesDJ.length],
+    cities[i]
+  );
+  pushListing(
+    idCounter++,
+    "Photographer",
+    subtypesPhotog[i % subtypesPhotog.length],
+    cities[i]
+  );
 }
 
 // add 7 more venues
 for (let j = 0; j < 7; j++) {
-  pushListing(idCounter++, "Venue", subtypesVenue[j % subtypesVenue.length], cities[j % cities.length]);
+  pushListing(
+    idCounter++,
+    "Venue",
+    subtypesVenue[j % subtypesVenue.length],
+    cities[j % cities.length]
+  );
 }
 
 export default sample;

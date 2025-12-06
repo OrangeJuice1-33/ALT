@@ -68,17 +68,15 @@ export default function AuthPage() {
         return;
       }
 
-      const { error } = await supabaseBrowser.auth.signUp(
-        {
-          email: signupEmail,
-          password: signupPassword,
-        },
-        {
+      const { error } = await supabaseBrowser.auth.signUp({
+        email: signupEmail,
+        password: signupPassword,
+        options: {
           // IMPORTANT: redirect after verification to local complete-profile page
           // make sure this exact URL is configured in Supabase Redirect URLs
           emailRedirectTo: "http://localhost:3000/auth/complete-profile",
-        }
-      );
+        },
+      });
 
       if (error) {
         alert(error.message);

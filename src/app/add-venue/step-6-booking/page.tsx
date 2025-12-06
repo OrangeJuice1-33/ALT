@@ -1,85 +1,235 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { format, addDays, eachDayOfInterval, isSameDay } from "date-fns";
+import { useRouter } from "next/navigation";
+import { format, addDays, eachDayOfInterval } from "date-fns";
 
-function dateToISO(d: Date) { return d.toISOString().slice(0,10); }
+// Utility
+function dateToISO(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
+interface BookingState {
+  listingId: string;
+  service: string;
+  startDate: string;
+  endDate: string;
+  excludeMode: boolean;
+  excludedDates: string[];
+  unit: string;
+  pricePerUnit: number;
+  priceSlider: number;
+  discounts: { min_units: number; percent: number }[];
+  discUnits: number;
+  discPercent: number;
+  error: string | null;
+}
 
 export default function Step6Booking() {
   const router = useRouter();
-  const params = useSearchParams();
-  const listingId = params.get("id"); // or passed via query
-  const service = params.get("service"); // e.g., "venue" or "dj"
-
   const today = new Date();
-  const [startDate, setStartDate] = useState<string>(dateToISO(today));
-  const [endDate, setEndDate] = useState<string>(dateToISO(addDays(today,1)));
-  const [excludeMode, setExcludeMode] = useState(false);
-  const [excludedDates, setExcludedDates] = useState<string[]>([]);
 
-  // pricing mode
-  const defaultUnit = service === "venue" ? "night" : "gig";
-  const [unit, setUnit] = useState<string>(defaultUnit);
-  const [pricePerUnit, setPricePerUnit] = useState<number>(5000); // sample default
-  const [priceSlider, setPriceSlider] = useState<number>(pricePerUnit);
+  const [showListingIdForm, setShowListingIdForm] = useState(true);
+  const [state, setState] = useState<BookingState>({
+    listingId: "",
+    service: "venue",
+    startDate: dateToISO(today),
+    endDate: dateToISO(addDays(today, 1)),
+    excludeMode: false,
+    excludedDates: [],
+    unit: "night",
+    pricePerUnit: 5000,
+    priceSlider: 5000,
+    discounts: [],
+    discUnits: 3,
+    discPercent: 5,
+    error: null,
+  });
 
-  // discounts list (local UI) — each item {min_units, percent}
-  const [discounts, setDiscounts] = useState<{min_units:number, percent:number}[]>([]);
+  // Handle listing ID submission
+  function handleListingIdSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
 
-  // derived days between
-  const dateRangeDays = useMemo(() => {
-    const s = new Date(startDate);
-    const e = new Date(endDate);
-    if (s > e) return [];
-    return eachDayOfInterval({ start: s, end: e }).map(d => dateToISO(d));
-  }, [startDate, endDate]);
+    if (!state.listingId.trim()) {
+      setState((prev) => ({
+        ...prev,
+        error: "Please enter a listing ID",
+      }));
+      return;
+    }
 
-  // effective units = dateRangeDays.length - excludedDates.length (for nights)
-  const effectiveUnits = Math.max(0, dateRangeDays.length - excludedDates.length);
-
-  // helper to toggle excluded date
-  function toggleExcluded(dateISO: string) {
-    setExcludedDates(prev => prev.some(d => d === dateISO) ? prev.filter(d=>d!==dateISO) : [...prev, dateISO]);
+    setState((prev) => ({
+      ...prev,
+      error: null,
+    }));
+    setShowListingIdForm(false);
   }
 
-  // discount editor
-  const [discUnits, setDiscUnits] = useState<number>(3);
-  const [discPercent, setDiscPercent] = useState<number>(5);
+  const dateRangeDays = useMemo(() => {
+    const s = new Date(state.startDate);
+    const e = new Date(state.endDate);
+    if (s > e) return [];
+
+    return eachDayOfInterval({ start: s, end: e }).map((d) => dateToISO(d));
+  }, [state.startDate, state.endDate]);
+
+  const effectiveUnits = Math.max(
+    0,
+    dateRangeDays.length - state.excludedDates.length
+  );
+
+  function updateState<K extends keyof BookingState>(
+    field: K,
+    value: BookingState[K]
+  ) {
+    setState((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  }
+
+  function toggleExcluded(dateISO: string) {
+    setState((prev) => ({
+      ...prev,
+      excludedDates: prev.excludedDates.includes(dateISO)
+        ? prev.excludedDates.filter((d) => d !== dateISO)
+        : [...prev.excludedDates, dateISO],
+    }));
+  }
 
   function addDiscount() {
-    setDiscounts(prev => [...prev, { min_units: discUnits, percent: discPercent }]);
+    if (
+      state.discUnits <= 0 ||
+      state.discPercent <= 0 ||
+      state.discPercent > 100
+    ) {
+      setState((prev) => ({
+        ...prev,
+        error: "Please enter valid discount values (min units > 0, percent 1-100)",
+      }));
+      return;
+    }
+
+    setState((prev) => ({
+      ...prev,
+      discounts: [
+        ...prev.discounts,
+        { min_units: prev.discUnits, percent: prev.discPercent },
+      ],
+      discUnits: 3,
+      discPercent: 5,
+      error: null,
+    }));
   }
 
-  // calculate applicable discount amount
-  function computeDiscount(subtotal:number) {
-    // choose the single best discount (largest percent) that meets min_units
-    const applicable = discounts.filter(d => effectiveUnits >= d.min_units);
+  function removeDiscount(index: number) {
+    setState((prev) => ({
+      ...prev,
+      discounts: prev.discounts.filter((_, i) => i !== index),
+    }));
+  }
+
+  function computeDiscount(subtotal: number) {
+    const applicable = state.discounts.filter(
+      (d) => effectiveUnits >= d.min_units
+    );
     if (applicable.length === 0) return 0;
-    const top = Math.max(...applicable.map(d => d.percent));
-    return (subtotal * top) / 100;
+    const top = Math.max(...applicable.map((d) => d.percent));
+    return +((subtotal * top) / 100).toFixed(2);
   }
 
   function handleNext() {
-    // basic validation
-    if (!startDate || !endDate) return alert("Choose start and end date.");
-    if (new Date(startDate) > new Date(endDate)) return alert("Start date must be before end date.");
+    let error = "";
 
-    // build booking object and go to summary page (redirect with query or create server record first)
+    if (!state.startDate || !state.endDate) {
+      error = "Please choose start and end dates.";
+    } else if (new Date(state.startDate) > new Date(state.endDate)) {
+      error = "Start date must be before end date.";
+    } else if (state.pricePerUnit <= 0) {
+      error = "Price per unit must be greater than 0.";
+    }
+
+    if (error) {
+      setState((prev) => ({
+        ...prev,
+        error,
+      }));
+      return;
+    }
+
     const query = new URLSearchParams({
-      id: listingId ?? "",
-      unit,
-      pricePerUnit: String(pricePerUnit),
-      startDate,
-      endDate,
-      excludedDates: excludedDates.join(","),
-      discounts: JSON.stringify(discounts),
+      id: state.listingId,
+      service: state.service,
+      unit: state.unit,
+      pricePerUnit: String(state.pricePerUnit),
+      startDate: state.startDate,
+      endDate: state.endDate,
+      excludedDates: state.excludedDates.join(","),
+      discounts: JSON.stringify(state.discounts),
     }).toString();
 
     router.push(`/add-venue/step-8-summary?${query}`);
   }
 
-  const subtotal = effectiveUnits * pricePerUnit;
+  // Show listing ID form if not set
+  if (showListingIdForm) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(circle_at_top_left,#07102a_0%,#03031a_60%)] p-6 text-white">
+        <div className="w-full max-w-2xl bg-[#07102a]/80 border border-zinc-800 rounded-xl p-8 shadow-xl">
+          <h1 className="text-3xl font-bold mb-2">Enter Listing ID</h1>
+          <p className="text-zinc-400 mb-6">
+            Please enter your listing/venue ID to proceed with booking settings.
+          </p>
+
+          {state.error && (
+            <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded text-red-200">
+              {state.error}
+            </div>
+          )}
+
+          <form onSubmit={handleListingIdSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm mb-2 text-zinc-300">
+                Listing ID <span className="text-red-400">*</span>
+              </label>
+              <input
+                type="text"
+                value={state.listingId}
+                onChange={(e) =>
+                  setState((prev) => ({
+                    ...prev,
+                    listingId: e.target.value,
+                    error: null,
+                  }))
+                }
+                placeholder="Enter your listing ID"
+                className="w-full bg-zinc-900 border border-zinc-700 p-3 rounded-md focus:border-zinc-600 focus:outline-none transition"
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                className="flex-1 px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded-md font-semibold transition"
+              >
+                Continue
+              </button>
+
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="px-6 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-md font-semibold transition"
+              >
+                Back
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  const subtotal = effectiveUnits * state.pricePerUnit;
   const discountAmount = computeDiscount(subtotal);
   const afterDiscount = subtotal - discountAmount;
   const commission = +(afterDiscount * 0.05).toFixed(2);
@@ -91,50 +241,87 @@ export default function Step6Booking() {
       <div className="max-w-4xl mx-auto bg-[#07102a]/80 p-6 rounded-xl border border-zinc-800">
         <h2 className="text-2xl font-bold mb-4">Booking & Availability</h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        {state.error && (
+          <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded text-red-200">
+            {state.error}
+          </div>
+        )}
+
+        {/* Dates */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <label className="block">
             <div className="text-sm text-zinc-300">Start date</div>
-            <input type="date" value={startDate} onChange={(e)=>setStartDate(e.target.value)} className="mt-2 p-2 rounded bg-zinc-900" />
+            <input
+              type="date"
+              value={state.startDate}
+              onChange={(e) => updateState("startDate", e.target.value)}
+              className="mt-2 p-2 rounded bg-zinc-900 w-full border border-zinc-700 focus:border-zinc-600 focus:outline-none transition"
+            />
           </label>
 
           <label className="block">
             <div className="text-sm text-zinc-300">End date</div>
-            <input type="date" value={endDate} onChange={(e)=>setEndDate(e.target.value)} className="mt-2 p-2 rounded bg-zinc-900" />
+            <input
+              type="date"
+              value={state.endDate}
+              onChange={(e) => updateState("endDate", e.target.value)}
+              className="mt-2 p-2 rounded bg-zinc-900 w-full border border-zinc-700 focus:border-zinc-600 focus:outline-none transition"
+            />
           </label>
         </div>
 
+        {/* Exclusion */}
         <div className="mb-4">
-          <label className="inline-flex items-center gap-2">
-            <input type="checkbox" checked={excludeMode} onChange={(e)=>setExcludeMode(e.target.checked)} />
-            <span className="text-sm text-zinc-300">Exclude specific dates within range</span>
+          <label className="inline-flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={state.excludeMode}
+              onChange={(e) => updateState("excludeMode", e.target.checked)}
+              className="cursor-pointer"
+            />
+            <span className="text-sm text-zinc-300">
+              Exclude specific dates
+            </span>
           </label>
         </div>
 
-        {/* Visual list of dates in range - click to toggle exclusion */}
-        <div className="mb-6">
-          <div className="text-sm text-zinc-300 mb-2">Selected dates</div>
-          <div className="flex flex-wrap gap-2">
-            {dateRangeDays.map(d => {
-              const isExcluded = excludedDates.includes(d);
-              return (
+        {/* Calendar preview */}
+        {dateRangeDays.length > 0 && (
+          <div className="mb-6">
+            <div className="text-sm text-zinc-300 mb-2">
+              Selected dates ({dateRangeDays.length} total,{" "}
+              {state.excludedDates.length} excluded)
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {dateRangeDays.map((d) => (
                 <button
                   key={d}
-                  disabled={!excludeMode}
+                  disabled={!state.excludeMode}
                   onClick={() => toggleExcluded(d)}
-                  className={`px-3 py-1 rounded-md ${isExcluded ? "bg-red-600/80" : "bg-blue-600/80"}`}
+                  className={`px-3 py-1 rounded-md text-sm transition ${
+                    state.excludedDates.includes(d)
+                      ? "bg-red-600/80 hover:bg-red-700"
+                      : "bg-blue-600/80 hover:bg-blue-700"
+                  } ${
+                    !state.excludeMode ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
                 >
                   {format(new Date(d), "dd MMM")}
                 </button>
-              );
-            })}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Pricing */}
+        {/* Price */}
         <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="text-sm text-zinc-300">Unit</label>
-            <select value={unit} onChange={(e)=>setUnit(e.target.value)} className="mt-2 p-2 rounded bg-zinc-900">
+            <select
+              value={state.unit}
+              onChange={(e) => updateState("unit", e.target.value)}
+              className="mt-2 p-2 rounded bg-zinc-900 w-full border border-zinc-700 focus:border-zinc-600 focus:outline-none transition"
+            >
               <option value="night">Per night</option>
               <option value="hour">Per hour</option>
               <option value="gig">Per gig</option>
@@ -142,55 +329,194 @@ export default function Step6Booking() {
           </div>
 
           <div>
-            <label className="text-sm text-zinc-300">Price per {unit}</label>
-            <input type="number" value={pricePerUnit} onChange={(e)=>{ setPricePerUnit(Number(e.target.value)); setPriceSlider(Number(e.target.value)); }} className="mt-2 p-2 rounded bg-zinc-900" />
+            <label className="text-sm text-zinc-300">
+              Price per {state.unit}
+            </label>
+            <input
+              type="number"
+              min={0}
+              value={state.pricePerUnit}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                setState((prev) => ({
+                  ...prev,
+                  pricePerUnit: val,
+                  priceSlider: val,
+                }));
+              }}
+              className="mt-2 p-2 rounded bg-zinc-900 w-full border border-zinc-700 focus:border-zinc-600 focus:outline-none transition"
+            />
           </div>
 
           <div>
             <label className="text-sm text-zinc-300">Adjust price</label>
-            <input type="range" min="0" max="200000" value={priceSlider} onChange={(e)=>{ setPriceSlider(Number(e.target.value)); setPricePerUnit(Number(e.target.value)); }} className="mt-3 w-full" />
-            <div className="text-xs text-zinc-400 mt-1">₹{pricePerUnit}</div>
+            <input
+              type="range"
+              min={0}
+              max={200000}
+              value={state.priceSlider}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                setState((prev) => ({
+                  ...prev,
+                  priceSlider: val,
+                  pricePerUnit: val,
+                }));
+              }}
+              className="mt-3 w-full"
+            />
+            <div className="text-xs text-zinc-400 mt-1">
+              ₹{state.pricePerUnit.toLocaleString("en-IN")}
+            </div>
           </div>
         </div>
 
-        {/* Discounts editor */}
+        {/* Discounts */}
         <div className="mb-6">
-          <h3 className="font-semibold mb-2">Discounts</h3>
-          <div className="flex gap-2 items-center mb-2">
-            <input type="number" value={discUnits} onChange={(e)=>setDiscUnits(Number(e.target.value))} className="p-2 rounded bg-zinc-900" />
-            <div className="text-zinc-300">units →</div>
-            <input type="number" value={discPercent} onChange={(e)=>setDiscPercent(Number(e.target.value))} className="p-2 rounded bg-zinc-900" />
-            <div className="text-zinc-300">%</div>
-            <button onClick={addDiscount} className="ml-2 px-3 py-1 bg-green-600 rounded">Add</button>
+          <h3 className="font-semibold mb-3">Discounts</h3>
+          <div className="flex gap-2 items-end mb-4 flex-wrap">
+            <div className="flex-1 min-w-[120px]">
+              <label className="text-xs text-zinc-300">Min units</label>
+              <input
+                type="number"
+                min={1}
+                value={state.discUnits}
+                onChange={(e) => updateState("discUnits", Number(e.target.value))}
+                className="mt-1 p-2 rounded bg-zinc-900 w-full border border-zinc-700 focus:border-zinc-600 focus:outline-none transition"
+              />
+            </div>
+
+            <div className="flex-1 min-w-[120px]">
+              <label className="text-xs text-zinc-300">Discount %</label>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={state.discPercent}
+                onChange={(e) =>
+                  updateState("discPercent", Number(e.target.value))
+                }
+                className="mt-1 p-2 rounded bg-zinc-900 w-full border border-zinc-700 focus:border-zinc-600 focus:outline-none transition"
+              />
+            </div>
+
+            <button
+              onClick={addDiscount}
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded transition"
+            >
+              Add
+            </button>
           </div>
 
-          <div className="bg-zinc-900 p-3 rounded">
-            <table className="w-full text-sm">
-              <thead className="text-zinc-400">
-                <tr><th>Min units</th><th>Discount %</th></tr>
-              </thead>
-              <tbody>
-                {discounts.map((d,i)=>(
-                  <tr key={i}><td>{d.min_units}</td><td>{d.percent}%</td></tr>
-                ))}
-              </tbody>
-            </table>
+          {state.discounts.length > 0 && (
+            <div className="bg-zinc-900 p-3 rounded overflow-x-auto border border-zinc-700">
+              <table className="w-full text-sm">
+                <thead className="text-zinc-400 border-b border-zinc-700">
+                  <tr>
+                    <th className="text-left py-2">Min units</th>
+                    <th className="text-left py-2">Discount %</th>
+                    <th className="text-left py-2">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.discounts.map((d, i) => (
+                    <tr key={i} className="border-b border-zinc-800">
+                      <td className="py-2">{d.min_units}</td>
+                      <td className="py-2">{d.percent}%</td>
+                      <td className="py-2">
+                        <button
+                          onClick={() => removeDiscount(i)}
+                          className="text-xs text-red-400 hover:text-red-300 transition"
+                        >
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Summary */}
+        <div className="mb-6 bg-[#021028] p-4 rounded border border-zinc-700">
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <div className="text-zinc-400">
+                Units ({dateRangeDays.length} days -{" "}
+                {state.excludedDates.length} excluded)
+              </div>
+              <div className="font-semibold">{effectiveUnits}</div>
+            </div>
+            <div className="flex justify-between">
+              <div className="text-zinc-400">Subtotal</div>
+              <div>
+                ₹{subtotal.toLocaleString("en-IN", {
+                  maximumFractionDigits: 2,
+                })}
+              </div>
+            </div>
+            {discountAmount > 0 && (
+              <div className="flex justify-between text-green-400">
+                <div>Discount</div>
+                <div>
+                  - ₹{discountAmount.toLocaleString("en-IN", {
+                    maximumFractionDigits: 2,
+                  })}
+                </div>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <div className="text-zinc-400">Commission (5%)</div>
+              <div>
+                ₹{commission.toLocaleString("en-IN", {
+                  maximumFractionDigits: 2,
+                })}
+              </div>
+            </div>
+            <div className="flex justify-between">
+              <div className="text-zinc-400">Service fee (1%)</div>
+              <div>
+                ₹{serviceFee.toLocaleString("en-IN", {
+                  maximumFractionDigits: 2,
+                })}
+              </div>
+            </div>
+
+            <div className="flex justify-between text-lg font-bold pt-2 border-t border-zinc-600">
+              <div>Total</div>
+              <div className="text-blue-400">
+                ₹{total.toLocaleString("en-IN", {
+                  maximumFractionDigits: 2,
+                })}
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Summary preview */}
-        <div className="mb-6 bg-[#021028] p-4 rounded">
-          <div className="flex justify-between"><div>Units</div><div>{effectiveUnits}</div></div>
-          <div className="flex justify-between"><div>Subtotal</div><div>₹{subtotal.toFixed(2)}</div></div>
-          <div className="flex justify-between"><div>Discount</div><div>- ₹{discountAmount.toFixed(2)}</div></div>
-          <div className="flex justify-between"><div>Commission (5%)</div><div>₹{commission.toFixed(2)}</div></div>
-          <div className="flex justify-between"><div>Service fee (1%)</div><div>₹{serviceFee.toFixed(2)}</div></div>
-          <div className="flex justify-between font-bold text-lg"><div>Total</div><div>₹{total.toFixed(2)}</div></div>
-        </div>
-
+        {/* Buttons */}
         <div className="flex gap-2">
-          <button className="px-4 py-2 bg-blue-600 rounded-md" onClick={handleNext}>Next: Summary</button>
-          <button className="px-4 py-2 bg-zinc-700 rounded-md" onClick={()=>router.back()}>Back</button>
+          <button
+            className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md font-medium transition"
+            onClick={handleNext}
+          >
+            Next: Summary
+          </button>
+
+          <button
+            className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-md transition"
+            onClick={() => {
+              setShowListingIdForm(true);
+              setState((prev) => ({
+                ...prev,
+                listingId: "",
+                error: null,
+              }));
+            }}
+          >
+            Back
+          </button>
         </div>
       </div>
     </div>

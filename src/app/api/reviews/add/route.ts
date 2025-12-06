@@ -28,6 +28,10 @@ export async function POST(req: Request) {
     .select("rating")
     .eq("venue_id", venue_id);
 
+  if (!stats) {
+    return NextResponse.json({ error: "Failed to fetch review stats" }, { status: 500 });
+  }
+
   const totalReviews = stats.length;
   const avgRating =
     stats.reduce((sum: number, r: any) => sum + r.rating, 0) / totalReviews;

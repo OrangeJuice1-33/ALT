@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 16, "column": 0}, "map": {"version":3,"sources":["turbopack:///[project]/Desktop/alt/src/middleware.ts"],"sourcesContent":["import { NextResponse } from \"next/server\";\nimport type { NextRequest } from \"next/server\";\n\nexport function middleware(req: NextRequest) {\n  const token = req.cookies.get(\"sb-access-token\")?.value;\n  const url = req.nextUrl;\n\n  // Protect dashboard routes\n  if (url.pathname.startsWith(\"/dashboard\")) {\n    if (!token) {\n      const redirectUrl = url.clone();\n      redirectUrl.pathname = \"/auth\";\n      return NextResponse.redirect(redirectUrl);\n    }\n  }\n\n  return NextResponse.next();\n}\n\nexport const config = {\n  matcher: [\"/dashboard/:path*\"],\n};\n"],"names":[],"mappings":";;;;;;AAAA;AAAA;;AAGO,SAAS,WAAW,GAAgB;IACzC,MAAM,QAAQ,IAAI,OAAO,CAAC,GAAG,CAAC,oBAAoB;IAClD,MAAM,MAAM,IAAI,OAAO;IAEvB,2BAA2B;IAC3B,IAAI,IAAI,QAAQ,CAAC,UAAU,CAAC,eAAe;QACzC,IAAI,CAAC,OAAO;YACV,MAAM,cAAc,IAAI,KAAK;YAC7B,YAAY,QAAQ,GAAG;YACvB,OAAO,kNAAY,CAAC,QAAQ,CAAC;QAC/B;IACF;IAEA,OAAO,kNAAY,CAAC,IAAI;AAC1B;AAEO,MAAM,SAAS;IACpB,SAAS;QAAC;KAAoB;AAChC"}}]
-}

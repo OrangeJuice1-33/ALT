@@ -88,7 +88,7 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#030420] to-[#07061a] p-6 text-white">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-b from-[#030420] to-[#07061a] p-6 text-white">
       <div className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-lg">
         <div className="flex gap-2 mb-6">
           <button

@@ -1,10 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { motion } from "framer-motion";
+import { motion, type Variants } from "framer-motion";
 import { cn } from "@/lib/utils";
 
-const container = {
+const container: Variants = {
   hidden: {},
   show: {
     transition: {
@@ -13,9 +13,14 @@ const container = {
   },
 };
 
-const item = {
+const item: Variants = {
   hidden: { opacity: 0, y: 18, scale: 0.98 },
-  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.45, ease: [0.2, 0.8, 0.2, 1] } },
+  show: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { duration: 0.45, ease: [0.2, 0.8, 0.2, 1] },
+  },
 };
 
 export function BentoGrid({

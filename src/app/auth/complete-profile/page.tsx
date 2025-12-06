@@ -103,7 +103,7 @@ export default function CompleteProfilePage() {
       created_at: new Date().toISOString(),
     };
 
-    const { error } = await supabaseBrowser.from("profiles").upsert(profile, { returning: "minimal" });
+    const { error } = await supabaseBrowser.from("profiles").upsert(profile);
 
     if (error) {
       alert(error.message);
