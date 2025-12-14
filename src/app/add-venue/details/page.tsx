@@ -35,7 +35,6 @@ export default function Step2VenueDetails() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Validation function
   function validateForm(): boolean {
     const newErrors: Record<string, string> = {};
 
@@ -101,7 +100,6 @@ export default function Step2VenueDetails() {
       [field]: value,
     }));
 
-    // Clear error for this field as user types
     if (errors[field]) {
       setErrors((prev) => ({
         ...prev,
@@ -110,56 +108,30 @@ export default function Step2VenueDetails() {
     }
   }
 
-  async function handleNext(e: React.FormEvent): Promise<void> {
+  function handleNext(e: React.FormEvent): void {
     e.preventDefault();
 
     if (!validateForm()) {
       return;
     }
 
-    try {
-      setIsSubmitting(true);
+    setIsSubmitting(true);
 
-      const query = new URLSearchParams({
-        service: formData.service,
-        category: formData.category,
-        name: formData.name.trim(),
-        address1: formData.address1.trim(),
-        address2: formData.address2.trim(),
-        country: formData.country.trim(),
-        state: formData.state.trim(),
-        city: formData.city.trim(),
-        pincode: formData.pincode.trim(),
-        googlePin: formData.googlePin.trim(),
-      }).toString();
+    const query = new URLSearchParams({
+      service: formData.service,
+      category: formData.category,
+      name: formData.name.trim(),
+      address1: formData.address1.trim(),
+      address2: formData.address2.trim(),
+      country: formData.country.trim(),
+      state: formData.state.trim(),
+      city: formData.city.trim(),
+      pincode: formData.pincode.trim(),
+      googlePin: formData.googlePin.trim(),
+    }).toString();
 
-      router.push(`/add-venue/description?${query}`);
-    } catch (err) {
-      setErrors({
-        submit: err instanceof Error ? err.message : "An error occurred",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  // Check if service and category are set (user should fill these first)
-  if (!formData.service || !formData.category) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(circle_at_top_left,#07102a_0%,#03031a_60%)] p-6 text-white">
-        <div className="w-full max-w-2xl bg-[#07102a]/80 border border-zinc-800 rounded-xl p-8 shadow-xl text-center">
-          <p className="text-lg text-red-400 mb-4">
-            Error: Please complete the previous step (service & category)
-          </p>
-          <button
-            onClick={() => router.back()}
-            className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded transition"
-          >
-            Go Back
-          </button>
-        </div>
-      </div>
-    );
+    router.push(`/add-venue/description?${query}`);
+    setIsSubmitting(false);
   }
 
   return (
@@ -167,17 +139,57 @@ export default function Step2VenueDetails() {
       <div className="w-full max-w-2xl bg-[#07102a]/80 border border-zinc-800 rounded-xl p-8 shadow-xl">
         <h2 className="text-3xl font-bold mb-2 text-center">Venue Details</h2>
         <p className="text-center text-zinc-400 mb-8">
-          Service: <span className="text-zinc-200">{formData.service}</span> •{" "}
-          Category: <span className="text-zinc-200">{formData.category}</span>
+          Fill in all the required details below
         </p>
 
-        {errors.submit && (
-          <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded text-red-200">
-            {errors.submit}
-          </div>
-        )}
-
         <form onSubmit={handleNext} className="space-y-5">
+          {/* Service */}
+          <div>
+            <label className="block text-sm mb-2 text-zinc-300">
+              Service Type <span className="text-red-400">*</span>
+            </label>
+            <select
+              value={formData.service}
+              onChange={(e) => handleInputChange("service", e.target.value)}
+              className={`w-full bg-zinc-900 rounded-md border p-3 transition ${
+                errors.service
+                  ? "border-red-500 focus:border-red-500"
+                  : "border-zinc-700 focus:border-zinc-600"
+              } focus:outline-none`}
+            >
+              <option value="">Select a service</option>
+              <option value="venue">Venue</option>
+              <option value="decorator">Decorator</option>
+              <option value="caterer">Caterer</option>
+              <option value="dj">DJ</option>
+              <option value="photographer">Photographer</option>
+            </select>
+            {errors.service && (
+              <p className="text-xs text-red-400 mt-1">{errors.service}</p>
+            )}
+          </div>
+
+          {/* Category */}
+          <div>
+            <label className="block text-sm mb-2 text-zinc-300">
+              Category <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="text"
+              value={formData.category}
+              onChange={(e) => handleInputChange("category", e.target.value)}
+              placeholder="e.g., Luxury, Budget, Premium"
+              className={`w-full bg-zinc-900 rounded-md border p-3 transition ${
+                errors.category
+                  ? "border-red-500 focus:border-red-500"
+                  : "border-zinc-700 focus:border-zinc-600"
+              } focus:outline-none`}
+            />
+            {errors.category && (
+              <p className="text-xs text-red-400 mt-1">{errors.category}</p>
+            )}
+          </div>
+
           {/* Name */}
           <div>
             <label className="block text-sm mb-2 text-zinc-300">
