@@ -33,3 +33,30 @@ body {
 html {
   scroll-behavior: smooth;
 }
+
+/* Prevent blinking cursor on text elements */
+*:not(input):not(textarea):not([contenteditable="true"]) {
+  caret-color: transparent !important;
+}
+
+/* Ensure only editable elements show cursor */
+input, textarea, [contenteditable="true"] {
+  caret-color: auto;
+}
+
+/* Prevent text elements from showing cursor when focused */
+p:focus, span:focus, div:focus, h1:focus, h2:focus, h3:focus, h4:focus, h5:focus, h6:focus, label:focus, button:focus, a:focus {
+  caret-color: transparent !important;
+  outline: none;
+}
+
+/* Remove any blinking cursor animations */
+@keyframes blink {
+  to { visibility: hidden; }
+}
+
+*:not(input):not(textarea):not([contenteditable="true"])::after,
+*:not(input):not(textarea):not([contenteditable="true"])::before {
+  animation: none !important;
+  content: none !important;
+}

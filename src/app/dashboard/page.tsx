@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { supabaseBrowser } from "@/lib/supabase/client";
+import { auth, db } from "@/lib/firebase/config";
 import { useRouter } from "next/navigation";
+import { onAuthStateChanged } from "firebase/auth";
+import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 
 export default function AuthPage() {
   const [tab, setTab] = useState<"signin" | "signup">("signin");
@@ -17,12 +19,13 @@ export default function AuthPage() {
   async function lookupEmailFromUsername(input: string) {
     if (!input) return null;
     if (input.includes("@")) return input;
-    const { data: prof } = await supabaseBrowser
-      .from("profiles")
-      .select("email")
-      .eq("username", input)
-      .maybeSingle();
-    return prof?.email ?? null;
+    const profilesRef = collection(db, "profiles");
+    const q = query(profilesRef, where("username", "==", input));
+    const querySnapshot = await getDocs(q);
+    if (!querySnapshot.empty) {
+      return querySnapshot.docs[0].data().email ?? null;
+    }
+    return null;
   }
 
   async function handleSignIn(e: React.FormEvent) {
@@ -34,14 +37,12 @@ export default function AuthPage() {
         alert("Please provide email/username and password.");
         return;
       }
-      const { error } = await supabaseBrowser.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (error) {
+      try {
+        const { signInWithEmailAndPassword } = await import("firebase/auth");
+        await signInWithEmailAndPassword(auth, email, password);
+        router.push("/");
+      } catch (error: any) {
         alert(error.message);
-      } else {
-        router.push("/dashboard");
       }
     } finally {
       setLoading(false);
@@ -56,12 +57,16 @@ export default function AuthPage() {
         alert("Enter phone with country code, e.g. +919876543210");
         return;
       }
-      const { error } = await supabaseBrowser.auth.signInWithOtp({ phone });
-      if (error) {
-        alert(error.message);
-      } else {
+      try {
+        const { signInWithPhoneNumber, RecaptchaVerifier } = await import("firebase/auth");
+        const recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", {
+          size: "invisible",
+        });
+        await signInWithPhoneNumber(auth, phone, recaptchaVerifier);
         alert("OTP sent. After verification you will be signed in. Complete your profile next.");
         router.push("/auth/complete-profile");
+      } catch (error: any) {
+        alert(error.message);
       }
     } finally {
       setLoading(false);
@@ -79,12 +84,15 @@ export default function AuthPage() {
       return;
     }
 
-    const { error } = await supabaseBrowser.auth.resetPasswordForEmail(email, {
-      redirectTo: `${location.origin}/auth`,
-    });
-
-    if (error) alert(error.message);
-    else alert("Password reset email sent. (Check Supabase test emails if SMTP isn't configured.)");
+    try {
+      const { sendPasswordResetEmail } = await import("firebase/auth");
+      await sendPasswordResetEmail(auth, email, {
+        url: `${location.origin}/auth`,
+      });
+      alert("Password reset email sent. Check your inbox.");
+    } catch (error: any) {
+      alert(error.message);
+    }
   }
 
   return (

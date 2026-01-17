@@ -1,12 +1,75 @@
 // app/layout.tsx
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import AuthListener from "@/components/AuthListener"; // if you use it; remove if not
-import "./globals.css"; // adjust path if needed
+import { useRouter } from "next/navigation";
+import { Settings } from "lucide-react";
+import AuthListener from "@/components/AuthListener";
+import { auth, db } from "@/lib/firebase/config";
+import { onAuthStateChanged, signOut, User } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/dialog";
+import "./globals.css";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setUser(user);
+      
+      // Check if user is admin
+      if (user) {
+        try {
+          const profileRef = doc(db, "profiles", user.uid);
+          const profileSnap = await getDoc(profileRef);
+          if (profileSnap.exists()) {
+            const profileData = profileSnap.data();
+            setIsAdmin(profileData.role === "admin");
+          } else {
+            setIsAdmin(false);
+          }
+        } catch (error) {
+          console.error("Error checking admin status:", error);
+          setIsAdmin(false);
+        }
+      } else {
+        setIsAdmin(false);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      document.cookie = "firebase-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      setShowLogoutModal(false);
+      setShowDropdown(false);
+      router.push("/");
+    } catch (error) {
+      console.error("Error signing out:", error);
+      alert("Failed to sign out. Please try again.");
+    }
+  };
+
+  const getUserDisplayEmail = () => {
+    if (!user) return "";
+    return user.email || user.displayName || "User";
+  };
+
   return (
     <html lang="en">
       <body className="antialiased bg-black text-white">
@@ -37,21 +100,84 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <Link href="/about" className="hover:text-white transition-colors">About</Link>
               </div>
 
-              {/* Right auth buttons */}
+              {/* Right: Settings or auth buttons */}
               <div className="flex items-center gap-3 text-sm">
-                <Link
-                  href="/auth" /* user wanted register to go directly to auth */
-                  className="hidden md:inline-flex px-3 py-1.5 rounded-full border border-white/20 hover:border-white/40 text-zinc-200 hover:text-white transition-colors"
-                >
-                  Register
-                </Link>
-
-                <Link
-                  href="/auth/login"
-                  className="px-3 md:px-4 py-1.5 rounded-full bg-white/90 text-black text-sm font-medium hover:bg-white transition-colors"
-                >
-                  Sign in
-                </Link>
+                {user ? (
+                  <div className="relative">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowDropdown(!showDropdown);
+                      }}
+                      className="flex items-center justify-center w-10 h-10 rounded-full border border-white/20 hover:border-white/40 transition-colors hover:bg-white/5"
+                      aria-label="Settings"
+                    >
+                      <Settings size={20} className="text-zinc-200" />
+                    </button>
+                    
+                    {showDropdown && (
+                      <>
+                        {/* Overlay - rendered first so dropdown can be above it */}
+                        <div
+                          className="fixed inset-0 z-[45]"
+                          onClick={() => setShowDropdown(false)}
+                        />
+                        {/* Dropdown - rendered after overlay with higher z-index */}
+                        <div 
+                          className="absolute right-0 mt-2 w-48 bg-zinc-900 border border-zinc-700 rounded-lg shadow-lg overflow-hidden z-[50]"
+                        >
+                          <div className="px-4 py-3 border-b border-zinc-700">
+                            <p className="text-sm text-zinc-300">{getUserDisplayEmail()}</p>
+                            {isAdmin && (
+                              <p className="text-xs text-amber-400 mt-1 font-semibold">Admin</p>
+                            )}
+                          </div>
+                          {isAdmin && (
+                            <Link
+                              href="/admin"
+                              className="block px-4 py-2 text-sm text-amber-400 hover:bg-zinc-800 transition-colors cursor-pointer relative z-[51] font-semibold"
+                              onClick={() => setShowDropdown(false)}
+                            >
+                              Admin Dashboard
+                            </Link>
+                          )}
+                          <Link
+                            href="/add-venue"
+                            className="block px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer relative z-[51]"
+                            onClick={() => setShowDropdown(false)}
+                          >
+                            Add your venue/service
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowLogoutModal(true);
+                              setShowDropdown(false);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-zinc-800 transition-colors cursor-pointer relative z-[51]"
+                          >
+                            Logout
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <Link
+                      href="/auth"
+                      className="hidden md:inline-flex px-3 py-1.5 rounded-full border border-white/20 hover:border-white/40 text-zinc-200 hover:text-white transition-colors"
+                    >
+                      Register
+                    </Link>
+                    <Link
+                      href="/auth"
+                      className="px-3 md:px-4 py-1.5 rounded-full bg-white/90 text-black text-sm font-medium hover:bg-white transition-colors"
+                    >
+                      Sign in
+                    </Link>
+                  </>
+                )}
               </div>
             </nav>
           </div>
@@ -73,6 +199,32 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
           </div>
         </footer>
+
+        {/* Logout Confirmation Modal */}
+        <Dialog open={showLogoutModal} onOpenChange={setShowLogoutModal}>
+          <DialogContent className="bg-zinc-900 border-zinc-700 text-white">
+            <DialogHeader>
+              <DialogTitle className="text-white">Confirm Logout</DialogTitle>
+              <DialogDescription className="text-zinc-400">
+                Are you sure you want to logout? You will need to sign in again to access your account.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2">
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                className="px-4 py-2 rounded-md bg-zinc-800 text-zinc-200 hover:bg-zinc-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors"
+              >
+                Logout
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </body>
     </html>
   );

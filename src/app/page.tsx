@@ -77,9 +77,6 @@ export default function HomePage() {
             className="text-lg md:text-2xl text-zinc-200 mb-3 md:mb-4"
           >
             <span className="block mb-1 text-zinc-300">The future of booking.</span>
-            <span className="block font-semibold text-transparent bg-clip-text bg-linear-to-r from-sky-400 via-emerald-300 to-amber-300">
-              Book your experience.
-            </span>
           </motion.p>
 
           {/* CTA */}
@@ -88,7 +85,7 @@ export default function HomePage() {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.9, duration: 0.5 }}
-              className="mt-4 inline-flex items-center gap-2 px-6 md:px-8 py-2.5 md:py-3 rounded-full bg-linear-to-r from-sky-500 via-emerald-400 to-amber-300 text-black font-semibold text-sm md:text-base shadow-lg hover:shadow-xl transition"
+              className="mt-4 inline-flex items-center gap-2 px-6 md:px-8 py-2.5 md:py-3 rounded-full bg-linear-to-r from-sky-500 via-emerald-400 to-amber-300 text-white font-semibold text-sm md:text-base shadow-lg hover:shadow-xl transition"
             >
               Book your experience <span className="text-lg">↗️</span>
             </motion.button>
@@ -121,18 +118,6 @@ export default function HomePage() {
         </section>
 
       </main>
-
-      {/* FOOTER */}
-      <footer className="border-t border-white/10 bg-black/80">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex justify-between text-[11px] text-zinc-400">
-          <span>©️ 2035 ALT. All rights reserved.</span>
-          <div className="flex gap-3">
-            <button className="hover:text-zinc-200">Terms</button>
-            <button className="hover:text-zinc-200">Privacy</button>
-            <button className="hover:text-zinc-200">Contact</button>
-          </div>
-        </div>
-      </footer>
 
     </div>
   );

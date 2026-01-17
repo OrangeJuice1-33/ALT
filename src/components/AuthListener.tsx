@@ -2,52 +2,57 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { supabaseBrowser } from "@/lib/supabase/client";
+import { useRouter, usePathname } from "next/navigation";
+import { auth } from "@/lib/firebase/config";
+import { onAuthStateChanged } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase/config";
 
 export default function AuthListener() {
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
-    const { data: sub } = supabaseBrowser.auth.onAuthStateChange(
-      async (event, session) => {
-        // When user signs in (including after email verification), set cookie for middleware and route appropriately
-        if (event === "SIGNED_IN") {
-          const token = session?.access_token;
-          if (token) {
-            // cookie for middleware detection (short lived)
-            document.cookie = `sb-access-token=${token}; path=/; max-age=3600`;
-          }
-
-          const user = session?.user;
-          if (!user) return;
-
-          // check if profile exists
-          const { data: profile } = await supabaseBrowser
-            .from("profiles")
-            .select("id")
-            .eq("id", user.id)
-            .maybeSingle();
-
-          if (!profile) {
-            router.push("/auth/complete-profile");
-          } else {
-            router.push("/dashboard");
-          }
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // User is signed in
+        const token = await user.getIdToken();
+        if (token) {
+          // cookie for middleware detection (short lived)
+          document.cookie = `firebase-access-token=${token}; path=/; max-age=3600`;
         }
 
-        if (event === "SIGNED_OUT") {
-          // clear cookie and redirect to auth
-          document.cookie = "sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        // Only redirect if on auth pages
+        if (pathname?.startsWith("/auth")) {
+          // check if profile exists
+          const profileRef = doc(db, "profiles", user.uid);
+          const profileSnap = await getDoc(profileRef);
+
+          if (!profileSnap.exists()) {
+            router.push("/auth/complete-profile");
+          } else {
+            router.push("/");
+          }
+        }
+      } else {
+        // User is signed out
+        document.cookie = "firebase-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        
+        // Only redirect to auth if trying to access protected routes
+        // Allow public routes like /add-venue, /, /search, etc.
+        const protectedRoutes = ["/admin", "/auth/complete-profile"];
+        const isProtectedRoute = protectedRoutes.some(route => pathname?.startsWith(route));
+        
+        if (isProtectedRoute) {
           router.push("/auth");
         }
       }
-    );
+    });
 
     return () => {
-      sub.subscription.unsubscribe();
+      unsubscribe();
     };
-  }, [router]);
+  }, [router, pathname]);
 
   return null;
 }

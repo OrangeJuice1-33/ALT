@@ -30,7 +30,7 @@ interface Listing {
   excluded_dates?: string[];
 }
 
-export default function TopRatedPage() {
+export default function MostPopularPage() {
   // Filter states
   const [category, setCategory] = useState("Venue");
   const [subtype, setSubtype] = useState("");
@@ -57,10 +57,10 @@ export default function TopRatedPage() {
         const listingsRef = collection(db, "listings");
         let listingsQuery;
         try {
-          // Try to order by average_rating descending, fallback to no order if field doesn't exist
-          listingsQuery = query(listingsRef, orderBy("average_rating", "desc"));
+          // Try to order by bookingsCount descending, fallback to no order if field doesn't exist
+          listingsQuery = query(listingsRef, orderBy("bookingsCount", "desc"));
         } catch (error) {
-          console.warn("OrderBy average_rating failed, fetching without order:", error);
+          console.warn("OrderBy bookingsCount failed, fetching without order:", error);
           listingsQuery = query(listingsRef);
         }
 
@@ -93,8 +93,8 @@ export default function TopRatedPage() {
           });
         });
 
-        // Sort by average_rating descending (in case orderBy failed)
-        listingsData.sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0));
+        // Sort by bookingsCount descending (in case orderBy failed)
+        listingsData.sort((a, b) => (b.bookingsCount || 0) - (a.bookingsCount || 0));
 
         setListings(listingsData);
         setLoading(false);
@@ -157,7 +157,7 @@ export default function TopRatedPage() {
 
       // Filter by minimum bookings
       if (bookingsMin > 0) {
-        const listingBookings = l.review_count || l.bookingsCount || 0;
+        const listingBookings = l.bookingsCount || l.review_count || 0;
         if (listingBookings < bookingsMin) return false;
       }
 
@@ -231,14 +231,14 @@ export default function TopRatedPage() {
     startDateStr, endDateStr
   ]);
 
-  // Sort by rating descending (top rated first)
-  const sorted = [...filtered].sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0));
+  // Sort by bookingsCount descending (most popular first)
+  const sorted = [...filtered].sort((a, b) => (b.bookingsCount || 0) - (a.bookingsCount || 0));
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#07102a_0%,#03031a_60%)] text-white p-6">
       <div className="max-w-7xl mx-auto">
         
-        <h1 className="text-4xl font-bold mb-6">⭐ Top Rated</h1>
+        <h1 className="text-4xl font-bold mb-6">🔥 Most Popular</h1>
 
         {/* FULL FILTER BAR */}
         <FilterBar
@@ -290,7 +290,7 @@ export default function TopRatedPage() {
                     {item.category}
                   </div>
                   <div className="absolute right-3 top-3 bg-black/50 text-xs px-2 py-1 rounded">
-                    ⭐ {item.average_rating ? item.average_rating.toFixed(1) : "0.0"}
+                    🔥 {item.bookingsCount || 0} bookings
                   </div>
                 </div>
 
@@ -298,13 +298,20 @@ export default function TopRatedPage() {
                   <h3 className="font-bold text-lg">{item.name}</h3>
                   <p className="text-sm text-zinc-400 mt-1 line-clamp-2">{item.description}</p>
 
-                  <div className="mt-3 flex justify-between text-sm">
+                  <div className="mt-3 flex justify-between items-center text-sm">
                     <span className="text-zinc-300">
                       {item.address.city} • {item.address.state}
                     </span>
-                    <span className="font-bold">
-                      ₹{item.price_per_unit.toLocaleString("en-IN")} / {item.unit}
-                    </span>
+                    <div className="flex flex-col items-end">
+                      <span className="font-bold">
+                        ₹{item.price_per_unit.toLocaleString("en-IN")} / {item.unit}
+                      </span>
+                      {item.average_rating && item.average_rating > 0 && (
+                        <span className="text-xs text-zinc-400">
+                          ⭐ {item.average_rating.toFixed(1)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </Link>

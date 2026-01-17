@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { supabaseBrowser } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { storage, db, auth } from "@/lib/firebase/config";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { collection, addDoc } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 
 interface GalleryItem {
   tempUrl: string;
@@ -10,31 +13,105 @@ interface GalleryItem {
   caption: string;
 }
 
+const SERVICE_NAMES: Record<string, string> = {
+  venue: "Venue",
+  decorator: "Decorator",
+  caterer: "Caterer",
+  dj: "DJ",
+  photographer: "Photographer",
+};
+
+const SERVICE_GALLERY_INFO: Record<string, { 
+  description: string; 
+  placeholder: string;
+  minImages: number;
+}> = {
+  venue: {
+    description: "Upload at least 5 images showcasing your venue's spaces, amenities, and atmosphere. Each image requires a caption.",
+    placeholder: "Describe this venue space...",
+    minImages: 5,
+  },
+  decorator: {
+    description: "Upload at least 5 images of your decoration work, themes, and setups. Each image requires a caption.",
+    placeholder: "Describe this decoration design...",
+    minImages: 5,
+  },
+  caterer: {
+    description: "Upload at least 5 images of your food presentations, setups, and menu items. Each image requires a caption.",
+    placeholder: "Describe this dish/presentation...",
+    minImages: 5,
+  },
+  dj: {
+    description: "Upload at least 5 images of your DJ setup, events, equipment, and performance. Each image requires a caption.",
+    placeholder: "Describe this DJ setup/event...",
+    minImages: 5,
+  },
+  photographer: {
+    description: "Upload at least 5 images showcasing your photography work, style, and portfolio. Each image requires a caption.",
+    placeholder: "Describe this photography work...",
+    minImages: 5,
+  },
+};
+
 export default function VenueGalleryPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [items, setItems] = useState<GalleryItem[]>([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  const service = searchParams?.get("service") || "venue";
+  const serviceName = SERVICE_NAMES[service] || "Service";
+  const galleryInfo = SERVICE_GALLERY_INFO[service] || SERVICE_GALLERY_INFO.venue;
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUserId(user.uid);
+      } else {
+        setUserId(null);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   function addItem(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-    if (!file.type.startsWith("image/")) {
-      setError("Please upload images only.");
+    const maxToAdd = galleryInfo.minImages - items.length;
+    if (files.length > maxToAdd) {
+      setError(`You can only add ${maxToAdd} more image${maxToAdd === 1 ? '' : 's'}. Maximum ${galleryInfo.minImages} images allowed.`);
+      e.target.value = ""; // Reset input
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      setError("Image must be under 10MB.");
-      return;
+    const validFiles: GalleryItem[] = [];
+    
+    for (const file of files) {
+      if (!file.type.startsWith("image/")) {
+        setError("Please upload images only.");
+        e.target.value = ""; // Reset input
+        return;
+      }
+
+      if (file.size > 10 * 1024 * 1024) {
+        setError("Image must be under 10MB.");
+        e.target.value = ""; // Reset input
+        return;
+      }
+
+      validFiles.push({
+        tempUrl: URL.createObjectURL(file),
+        file,
+        caption: "",
+      });
     }
 
-    setItems((prev) => [
-      ...prev,
-      { tempUrl: URL.createObjectURL(file), file, caption: "" },
-    ]);
+    setItems((prev) => [...prev, ...validFiles]);
     setError(null);
+    e.target.value = ""; // Reset input for next selection
   }
 
   function updateCaption(index: number, text: string) {
@@ -50,33 +127,25 @@ export default function VenueGalleryPage() {
     setItems(copy);
   }
 
-  async function uploadToStorage(file: File): Promise<string> {
+  async function uploadToStorage(file: File, serviceType: string): Promise<string> {
     const ext = file.name.split(".").pop();
-    const filename = `gallery-${Date.now()}-${Math.random()
+    const serviceFolder = `${serviceType}-gallery`;
+    const filename = `${serviceFolder}/gallery-${Date.now()}-${Math.random()
       .toString(36)
       .slice(2)}.${ext}`;
 
-    const { error: uploadError } = await supabaseBrowser.storage
-      .from("venue-gallery")
-      .upload(filename, file);
-
-    if (uploadError) throw new Error(uploadError.message);
-
-    const { data } = supabaseBrowser.storage
-      .from("venue-gallery")
-      .getPublicUrl(filename);
-
-    if (!data?.publicUrl) throw new Error("Failed to get public URL.");
-
-    return data.publicUrl;
+    const storageRef = ref(storage, filename);
+    await uploadBytes(storageRef, file);
+    const downloadURL = await getDownloadURL(storageRef);
+    return downloadURL;
   }
 
   async function submitGallery() {
     try {
       setError(null);
 
-      if (items.length < 5) {
-        setError("Please upload at least 5 images.");
+      if (items.length < galleryInfo.minImages) {
+        setError(`Please upload at least ${galleryInfo.minImages} images.`);
         return;
       }
 
@@ -87,21 +156,35 @@ export default function VenueGalleryPage() {
 
       setUploading(true);
 
+      if (!userId) {
+        setError("You must be logged in to upload images.");
+        setUploading(false);
+        return;
+      }
+
+      const category = searchParams?.get("category") || "";
+      
       for (let item of items) {
-        const publicUrl = await uploadToStorage(item.file);
+        const publicUrl = await uploadToStorage(item.file, service);
 
-        const { error: insertErr } = await supabaseBrowser
-          .from("venue_gallery")
-          .insert({
-            url: publicUrl,
-            caption: item.caption.trim(),
-          });
-
-        if (insertErr) throw new Error(insertErr.message);
+        await addDoc(collection(db, "venue_gallery"), {
+          url: publicUrl,
+          caption: item.caption.trim(),
+          user_id: userId,
+          service_type: service,
+          category: category, // Save category to filter images by category
+          created_at: new Date().toISOString(),
+        });
       }
 
       setUploading(false);
-      router.push("/add-venue/step-6-booking");
+      
+      // Preserve service type and category in the URL
+      const query = new URLSearchParams({
+        ...(service && { service }),
+        ...(category && { category }),
+      }).toString();
+      router.push(`/add-venue/step-6-booking?${query}`);
     } catch (err) {
       setUploading(false);
       setError(err instanceof Error ? err.message : "Upload failed.");
@@ -111,9 +194,9 @@ export default function VenueGalleryPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(circle_at_top_left,#07102a_0%,#03031a_60%)] p-6 text-white">
       <div className="max-w-3xl w-full bg-[#07102a]/90 p-8 rounded-xl border border-zinc-800 shadow-xl">
-        <h1 className="text-3xl font-bold mb-4">Venue Gallery</h1>
+        <h1 className="text-3xl font-bold mb-4">{serviceName} Gallery</h1>
         <p className="text-zinc-400 mb-4">
-          Upload at least 5 images. Each image requires a caption.
+          {galleryInfo.description}
         </p>
 
         {error && (
@@ -122,13 +205,21 @@ export default function VenueGalleryPage() {
           </div>
         )}
 
-        <input
-          type="file"
-          accept="image/*"
-          onChange={addItem}
-          disabled={uploading}
-          className="mb-4 block"
-        />
+        <div className="mb-4">
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={addItem}
+            disabled={uploading || items.length >= galleryInfo.minImages}
+            className="mb-2 block"
+          />
+          <p className="text-xs text-zinc-500">
+            {items.length < galleryInfo.minImages
+              ? `You can select up to ${galleryInfo.minImages - items.length} image${galleryInfo.minImages - items.length === 1 ? '' : 's'} at once (${items.length}/${galleryInfo.minImages} selected)`
+              : `Maximum ${galleryInfo.minImages} images reached`}
+          </p>
+        </div>
 
         <div className="max-h-80 overflow-y-auto space-y-4 mb-6">
           {items.map((it, i) => (
@@ -142,7 +233,7 @@ export default function VenueGalleryPage() {
                 type="text"
                 value={it.caption}
                 onChange={(e) => updateCaption(i, e.target.value)}
-                placeholder="Caption required"
+                placeholder={galleryInfo.placeholder}
                 className="w-full bg-zinc-800 border border-zinc-700 p-2 rounded"
               />
 

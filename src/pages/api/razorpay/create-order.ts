@@ -18,12 +18,20 @@ export default async function handler(
 ) {
   if (req.method !== "POST") return res.status(405).end();
 
+  // Validate environment variables
+  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_SECRET) {
+    console.error("Razorpay credentials are missing. Please set RAZORPAY_KEY_ID and RAZORPAY_SECRET environment variables.");
+    return res.status(500).json({
+      message: "Payment gateway configuration error. Please contact support.",
+    });
+  }
+
   const { amount, currency = "INR", bookingId } = req.body;
   if (!amount) return res.status(400).json({ message: "amount required" });
 
   const rzp = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID!,
-    key_secret: process.env.RAZORPAY_SECRET!,
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_SECRET,
   });
 
   try {
@@ -40,8 +48,9 @@ export default async function handler(
       order,
     });
   } catch (err: any) {
+    console.error("Razorpay API error:", err);
     return res.status(500).json({
-      message: err?.message ?? "Razorpay error",
+      message: err?.message ?? "Failed to create payment order. Please try again.",
     });
   }
 }

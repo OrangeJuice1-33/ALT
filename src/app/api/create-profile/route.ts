@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
-import { supabaseServer } from "@/lib/supabase/server";
+import { db } from "@/lib/firebase/server";
+import { doc, setDoc } from "firebase/firestore";
 
 export async function POST(req: Request) {
-  const supabase = supabaseServer();
   const { user_id } = await req.json();
 
-  await supabase.from("profiles").insert({
-    id: user_id,
+  await setDoc(doc(db, "profiles", user_id), {
     role: "athlete",
     full_name: null,
-  });
+    created_at: new Date().toISOString(),
+  }, { merge: true });
 
   return NextResponse.json({ ok: true });
 }

@@ -1,34 +1,117 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
-const ALL_FEATURES = [
-  "Bedrooms",
-  "Bathrooms",
-  "Kitchen",
-  "Swimming Pool",
-  "Gym",
-  "Terrace",
-  "Balcony",
-  "Wi-Fi Router",
-  "Smart TV",
-  "Washing Machine",
-  "Backup Generator",
-  "Outdoor Seating",
-  "Parking Spots",
-  "Event Hall",
-  "DJ Console",
-];
+const SERVICE_FEATURES: Record<string, string[]> = {
+  venue: [
+    "Bedrooms",
+    "Bathrooms",
+    "Kitchen",
+    "Swimming Pool",
+    "Gym",
+    "Terrace",
+    "Balcony",
+    "Wi-Fi Router",
+    "Smart TV",
+    "Washing Machine",
+    "Backup Generator",
+    "Outdoor Seating",
+    "Parking Spots",
+    "Event Hall",
+    "DJ Console",
+  ],
+  decorator: [
+    "Floral Arrangements",
+    "Lighting Setup",
+    "Backdrop Design",
+    "Table Settings",
+    "Stage Decoration",
+    "Ceiling Décor",
+    "Entrance Décor",
+    "Photobooth Setup",
+    "Custom Props",
+    "Color Theme Design",
+    "Outdoor Decoration",
+    "Indoor Decoration",
+    "Marquee Setup",
+    "Carpet/Flooring",
+    "Sound System Integration",
+  ],
+  caterer: [
+    "Vegetarian Menu",
+    "Non-Vegetarian Menu",
+    "Vegan Options",
+    "Live Counters",
+    "Dessert Stations",
+    "Beverage Service",
+    "Wait Staff",
+    "Table Service",
+    "Buffet Setup",
+    "Plated Service",
+    "Custom Menu Design",
+    "Dietary Restrictions",
+    "Equipment Provided",
+    "Cleanup Service",
+    "Chef on Site",
+  ],
+  dj: [
+    "Sound System",
+    "Microphone",
+    "LED Lighting",
+    "Fog Machine",
+    "Projection Screen",
+    "Karaoke Setup",
+    "Music Library",
+    "Live Mixing",
+    "MC Services",
+    "Wireless Setup",
+    "Subwoofers",
+    "Backup Equipment",
+    "Extended Hours",
+    "Multiple Genres",
+    "Custom Playlist",
+  ],
+  photographer: [
+    "Pre-Wedding Shoot",
+    "Wedding Coverage",
+    "Candid Photography",
+    "Video Coverage",
+    "Drone Photography",
+    "Photo Editing",
+    "Video Editing",
+    "Album Design",
+    "Online Gallery",
+    "USB Delivery",
+    "Multiple Photographers",
+    "Extended Hours",
+    "Raw Files",
+    "Same Day Preview",
+    "Wedding Highlights",
+  ],
+};
+
+const SERVICE_NAMES: Record<string, string> = {
+  venue: "Venue",
+  decorator: "Decorator",
+  caterer: "Caterer",
+  dj: "DJ",
+  photographer: "Photographer",
+};
 
 export default function VenueFeaturesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Record<string, number>>({});
   const [showPopup, setShowPopup] = useState<string | null>(null);
   const [quantity, setQuantity] = useState("");
 
-  const filtered = ALL_FEATURES.filter((item) =>
+  const service = searchParams?.get("service") || "venue";
+  const serviceName = SERVICE_NAMES[service] || "Service";
+  const allFeatures = SERVICE_FEATURES[service] || SERVICE_FEATURES.venue;
+
+  const filtered = allFeatures.filter((item) =>
     item.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -52,13 +135,20 @@ export default function VenueFeaturesPage() {
       return;
     }
     localStorage.setItem("venue_features", JSON.stringify(selected));
-    router.push("/add-venue/gallery");
+    
+    // Preserve service type and category in the URL
+    const category = searchParams?.get("category") || "";
+    const query = new URLSearchParams({
+      service,
+      ...(category && { category }),
+    }).toString();
+    router.push(`/add-venue/gallery?${query}`);
   };
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#07102a_0%,#03031a_60%)] text-white p-6">
       <div className="max-w-3xl mx-auto bg-[#07102a]/80 border border-zinc-800 rounded-xl p-6 shadow-lg">
-        <h1 className="text-2xl font-semibold mb-4 text-center">Venue Features</h1>
+        <h1 className="text-2xl font-semibold mb-4 text-center">{serviceName} Features</h1>
         <p className="text-sm text-zinc-400 mb-4 text-center">Select features and set quantities.</p>
 
         <input

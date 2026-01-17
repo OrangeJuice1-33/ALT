@@ -1,11 +1,24 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+
+const SERVICE_NAMES: Record<string, string> = {
+  venue: "Venue",
+  decorator: "Decorator",
+  caterer: "Caterer",
+  dj: "DJ",
+  photographer: "Photographer",
+};
 
 export default function VenueDescriptionPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [description, setDescription] = useState("");
+  
+  const service = searchParams?.get("service") || "venue";
+  const serviceName = SERVICE_NAMES[service] || "Service";
+  const category = searchParams?.get("category") || "";
 
   const MIN = 50;
   const MAX = 100;
@@ -18,13 +31,19 @@ export default function VenueDescriptionPage() {
     }
     // store temporarily in localStorage (until final submit)
     localStorage.setItem("venue_description", description.trim());
-    router.push("/add-venue/features");
+    
+    // Preserve service type and category in the URL
+    const query = new URLSearchParams({
+      service,
+      ...(category && { category }),
+    }).toString();
+    router.push(`/add-venue/features?${query}`);
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(circle_at_top_left,#07102a_0%,#03031a_60%)] text-white p-6">
       <div className="max-w-2xl w-full bg-[#07102a]/80 border border-zinc-800 rounded-xl p-6 shadow-lg">
-        <h1 className="text-2xl font-semibold mb-4 text-center">Venue Description</h1>
+        <h1 className="text-2xl font-semibold mb-4 text-center">{serviceName} Description</h1>
         <p className="text-sm text-zinc-400 mb-3 text-center">
           Write a 50–100 word description that customers will see.
         </p>
@@ -33,7 +52,7 @@ export default function VenueDescriptionPage() {
           className="w-full h-48 rounded-md bg-zinc-900 border border-zinc-800 p-3 focus:outline-none"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Describe your venue..."
+          placeholder={`Describe your ${serviceName.toLowerCase()}...`}
         />
 
         <button

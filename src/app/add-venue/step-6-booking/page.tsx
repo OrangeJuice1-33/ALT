@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { format, addDays, eachDayOfInterval } from "date-fns";
 
 // Utility
@@ -10,7 +10,6 @@ function dateToISO(d: Date) {
 }
 
 interface BookingState {
-  listingId: string;
   service: string;
   startDate: string;
   endDate: string;
@@ -27,11 +26,10 @@ interface BookingState {
 
 export default function Step6Booking() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const today = new Date();
 
-  const [showListingIdForm, setShowListingIdForm] = useState(true);
   const [state, setState] = useState<BookingState>({
-    listingId: "",
     service: "venue",
     startDate: dateToISO(today),
     endDate: dateToISO(addDays(today, 1)),
@@ -46,24 +44,16 @@ export default function Step6Booking() {
     error: null,
   });
 
-  // Handle listing ID submission
-  function handleListingIdSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-
-    if (!state.listingId.trim()) {
-      setState((prev) => ({
-        ...prev,
-        error: "Please enter a listing ID",
-      }));
-      return;
-    }
-
+  // Load service type from URL params
+  useEffect(() => {
+    const service = searchParams?.get("service") || "venue";
+    const category = searchParams?.get("category") || "";
+    
     setState((prev) => ({
       ...prev,
-      error: null,
+      service,
     }));
-    setShowListingIdForm(false);
-  }
+  }, [searchParams]);
 
   const dateRangeDays = useMemo(() => {
     const s = new Date(state.startDate);
@@ -157,8 +147,8 @@ export default function Step6Booking() {
       return;
     }
 
+    const category = searchParams?.get("category") || "";
     const query = new URLSearchParams({
-      id: state.listingId,
       service: state.service,
       unit: state.unit,
       pricePerUnit: String(state.pricePerUnit),
@@ -166,67 +156,10 @@ export default function Step6Booking() {
       endDate: state.endDate,
       excludedDates: state.excludedDates.join(","),
       discounts: JSON.stringify(state.discounts),
+      ...(category && { category }),
     }).toString();
 
     router.push(`/add-venue/step-8-summary?${query}`);
-  }
-
-  // Show listing ID form if not set
-  if (showListingIdForm) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(circle_at_top_left,#07102a_0%,#03031a_60%)] p-6 text-white">
-        <div className="w-full max-w-2xl bg-[#07102a]/80 border border-zinc-800 rounded-xl p-8 shadow-xl">
-          <h1 className="text-3xl font-bold mb-2">Enter Listing ID</h1>
-          <p className="text-zinc-400 mb-6">
-            Please enter your listing/venue ID to proceed with booking settings.
-          </p>
-
-          {state.error && (
-            <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded text-red-200">
-              {state.error}
-            </div>
-          )}
-
-          <form onSubmit={handleListingIdSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm mb-2 text-zinc-300">
-                Listing ID <span className="text-red-400">*</span>
-              </label>
-              <input
-                type="text"
-                value={state.listingId}
-                onChange={(e) =>
-                  setState((prev) => ({
-                    ...prev,
-                    listingId: e.target.value,
-                    error: null,
-                  }))
-                }
-                placeholder="Enter your listing ID"
-                className="w-full bg-zinc-900 border border-zinc-700 p-3 rounded-md focus:border-zinc-600 focus:outline-none transition"
-              />
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                className="flex-1 px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded-md font-semibold transition"
-              >
-                Continue
-              </button>
-
-              <button
-                type="button"
-                onClick={() => router.back()}
-                className="px-6 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-md font-semibold transition"
-              >
-                Back
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    );
   }
 
   const subtotal = effectiveUnits * state.pricePerUnit;
@@ -506,14 +439,7 @@ export default function Step6Booking() {
 
           <button
             className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-md transition"
-            onClick={() => {
-              setShowListingIdForm(true);
-              setState((prev) => ({
-                ...prev,
-                listingId: "",
-                error: null,
-              }));
-            }}
+            onClick={() => router.back()}
           >
             Back
           </button>

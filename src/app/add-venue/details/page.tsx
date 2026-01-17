@@ -1,7 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect, useMemo } from "react";
+import { STATE_CITIES_MAP, STATES, REGION_MAP } from "@/components/FilterBar";
 
 interface VenueDetailsState {
   service: string;
@@ -12,12 +13,14 @@ interface VenueDetailsState {
   country: string;
   state: string;
   city: string;
+  region: string;
   pincode: string;
   googlePin: string;
 }
 
 export default function Step2VenueDetails() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [formData, setFormData] = useState<VenueDetailsState>({
     service: "",
@@ -28,9 +31,57 @@ export default function Step2VenueDetails() {
     country: "India",
     state: "",
     city: "",
+    region: "",
     pincode: "",
     googlePin: "",
   });
+
+  // Get cities for selected state
+  const availableCities = useMemo(() => {
+    if (!formData.state) return [];
+    return STATE_CITIES_MAP[formData.state] || [];
+  }, [formData.state]);
+
+  // Get regions for selected city
+  const availableRegions = useMemo(() => {
+    if (!formData.city) return [];
+    return REGION_MAP[formData.city] || [];
+  }, [formData.city]);
+
+  // Reset city when state changes
+  useEffect(() => {
+    if (formData.state && !availableCities.includes(formData.city)) {
+      setFormData((prev) => ({
+        ...prev,
+        city: "",
+        region: "", // Also reset region when city is reset
+      }));
+    }
+  }, [formData.state, formData.city, availableCities]);
+
+  // Reset region when city changes
+  useEffect(() => {
+    if (formData.city && !availableRegions.includes(formData.region)) {
+      setFormData((prev) => ({
+        ...prev,
+        region: "",
+      }));
+    }
+  }, [formData.city, formData.region, availableRegions]);
+
+  // Pre-fill service and category from query params
+  useEffect(() => {
+    const service = searchParams?.get("service") || "";
+    const category = searchParams?.get("category") || "";
+    
+    if (service || category) {
+      setFormData((prev) => ({
+        ...prev,
+        service: service,
+        category: category,
+      }));
+    }
+  }, [searchParams]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -126,6 +177,7 @@ export default function Step2VenueDetails() {
       country: formData.country.trim(),
       state: formData.state.trim(),
       city: formData.city.trim(),
+      region: formData.region.trim(),
       pincode: formData.pincode.trim(),
       googlePin: formData.googlePin.trim(),
     }).toString();
@@ -277,18 +329,25 @@ export default function Step2VenueDetails() {
               <label className="block text-sm mb-2 text-zinc-300">
                 State <span className="text-red-400">*</span>
               </label>
-              <input
-                type="text"
+              <select
                 className={`w-full bg-zinc-900 rounded-md border p-3 transition ${
                   errors.state
                     ? "border-red-500 focus:border-red-500"
                     : "border-zinc-700 focus:border-zinc-600"
                 } focus:outline-none`}
-                placeholder="Ex: Maharashtra"
                 value={formData.state}
-                onChange={(e) => handleInputChange("state", e.target.value)}
-                maxLength={50}
-              />
+                onChange={(e) => {
+                  handleInputChange("state", e.target.value);
+                  handleInputChange("city", ""); // Reset city when state changes
+                }}
+              >
+                <option value="">Select State</option>
+                {STATES.map((state) => (
+                  <option key={state} value={state}>
+                    {state}
+                  </option>
+                ))}
+              </select>
               {errors.state && (
                 <p className="text-xs text-red-400 mt-1">{errors.state}</p>
               )}
@@ -298,22 +357,62 @@ export default function Step2VenueDetails() {
               <label className="block text-sm mb-2 text-zinc-300">
                 City <span className="text-red-400">*</span>
               </label>
-              <input
-                type="text"
+              <select
                 className={`w-full bg-zinc-900 rounded-md border p-3 transition ${
                   errors.city
                     ? "border-red-500 focus:border-red-500"
                     : "border-zinc-700 focus:border-zinc-600"
-                } focus:outline-none`}
-                placeholder="Ex: Mumbai"
+                } focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed`}
                 value={formData.city}
-                onChange={(e) => handleInputChange("city", e.target.value)}
-                maxLength={50}
-              />
+                onChange={(e) => {
+                  handleInputChange("city", e.target.value);
+                  handleInputChange("region", ""); // Reset region when city changes
+                }}
+                disabled={!formData.state || availableCities.length === 0}
+              >
+                <option value="">
+                  {formData.state
+                    ? availableCities.length > 0
+                      ? "Select City"
+                      : "No cities available"
+                    : "Select State first"}
+                </option>
+                {availableCities.map((city) => (
+                  <option key={city} value={city}>
+                    {city}
+                  </option>
+                ))}
+              </select>
               {errors.city && (
                 <p className="text-xs text-red-400 mt-1">{errors.city}</p>
               )}
             </div>
+          </div>
+
+          {/* Region */}
+          <div>
+            <label className="block text-sm mb-2 text-zinc-300">
+              Region <span className="text-zinc-500">(optional)</span>
+            </label>
+            <select
+              className="w-full bg-zinc-900 rounded-md border border-zinc-700 p-3 focus:border-zinc-600 focus:outline-none transition disabled:opacity-50 disabled:cursor-not-allowed"
+              value={formData.region}
+              onChange={(e) => handleInputChange("region", e.target.value)}
+              disabled={!formData.city || availableRegions.length === 0}
+            >
+              <option value="">
+                {formData.city
+                  ? availableRegions.length > 0
+                    ? "Select Region (optional)"
+                    : "No regions available"
+                  : "Select City first"}
+              </option>
+              {availableRegions.map((region) => (
+                <option key={region} value={region}>
+                  {region}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Pincode */}

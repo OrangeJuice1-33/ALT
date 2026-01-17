@@ -9,24 +9,46 @@ const SERVICES = [
   },
   {
     name: "Decorators",
-    subtypes: ["Traditional", "Modern", "Minimal", "Royal Theme", "Floral Theme", "Bollywood Theme"],
+    subtypes: ["Floral", "Luxury", "Minimal", "Boho", "Theme-based"],
   },
   {
     name: "Caterers",
-    subtypes: ["Indian", "Italian", "Asian", "Mexican", "Continental", "Fusion", "BBQ"],
+    subtypes: ["Indian", "Continental", "Italian", "Asian Fusion", "Street Food", "Custom menus"],
   },
   {
     name: "DJs",
-    subtypes: ["All-Mix", "House Music", "Sufi", "Hip-Hop", "Pop", "EDM", "Bollywood"],
+    subtypes: ["Bollywood", "EDM", "House", "Hip-Hop", "Mixed"],
   },
   {
     name: "Photographers",
-    subtypes: ["Wedding", "Portfolio", "Candid", "Studio", "Documentary", "Lifestyle"],
+    subtypes: ["Candid", "Cinematic", "Drone", "Fashion", "Event coverage"],
   },
 ];
 
 export default function AddVenuePage() {
   const [selected, setSelected] = useState<string | null>(null);
+  const [selectedSubtype, setSelectedSubtype] = useState<string>("");
+
+  // Map service display names to their lowercase values used in the form
+  const serviceNameToValue: Record<string, string> = {
+    "Venue": "venue",
+    "Decorators": "decorator",
+    "Caterers": "caterer",
+    "DJs": "dj",
+    "Photographers": "photographer",
+  };
+
+  function handleContinue() {
+    if (!selected || !selectedSubtype) return;
+    
+    const serviceValue = serviceNameToValue[selected] || selected.toLowerCase();
+    const query = new URLSearchParams({
+      service: serviceValue,
+      category: selectedSubtype,
+    }).toString();
+    
+    window.location.href = `/add-venue/details?${query}`;
+  }
 
   return (
     <div className="min-h-screen px-6 py-24 bg-[radial-gradient(circle_at_top_left,#07102a_0%,#03031a_60%)] text-white flex flex-col items-center">
@@ -39,7 +61,10 @@ export default function AddVenuePage() {
           list="service-list"
           placeholder="Search or select"
           className="w-full bg-zinc-900 border border-zinc-700 rounded-md p-3"
-          onChange={(e) => setSelected(e.target.value)}
+          onChange={(e) => {
+            setSelected(e.target.value);
+            setSelectedSubtype(""); // Reset subtype when service changes
+          }}
         />
         <datalist id="service-list">
           {SERVICES.map((s) => (
@@ -51,18 +76,23 @@ export default function AddVenuePage() {
       {selected && (
         <div className="w-full max-w-xl space-y-3 mt-8">
           <label className="block text-lg">Service Subtype</label>
-          <select className="w-full bg-zinc-900 border border-zinc-700 rounded-md p-3">
+          <select 
+            className="w-full bg-zinc-900 border border-zinc-700 rounded-md p-3"
+            value={selectedSubtype}
+            onChange={(e) => setSelectedSubtype(e.target.value)}
+          >
+            <option value="">Select a subtype</option>
             {SERVICES.find((s) => s.name === selected)?.subtypes.map((sub) => (
-              <option key={sub}>{sub}</option>
+              <option key={sub} value={sub}>{sub}</option>
             ))}
           </select>
         </div>
       )}
 
-      {selected && (
+      {selected && selectedSubtype && (
         <button
           className="mt-10 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold"
-          onClick={() => (window.location.href = "/add-venue/details")}
+          onClick={handleContinue}
         >
           Continue →
         </button>

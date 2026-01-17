@@ -1,8 +1,10 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { supabaseBrowser } from "@/lib/supabase/client";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect } from "react";
+import { auth, db } from "@/lib/firebase/config";
+import { onAuthStateChanged } from "firebase/auth";
+import { collection, addDoc, getDocs, query, where } from "firebase/firestore";
 
 interface SummaryState {
   listingId: string;
@@ -19,8 +21,11 @@ interface SummaryState {
 
 export default function SummaryPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [showListingForm, setShowListingForm] = useState(true);
+  const [listingSaved, setListingSaved] = useState(false);
+  const [listingId, setListingId] = useState<string>("");
   const [state, setState] = useState<SummaryState>({
     listingId: "",
     startDate: "",
@@ -34,49 +39,39 @@ export default function SummaryPage() {
     error: null,
   });
 
-  // Handle listing details submission
-  function handleListingSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-
-    if (!state.listingId.trim()) {
-      setState((prev) => ({
-        ...prev,
-        error: "Please enter a listing ID",
-      }));
-      return;
-    }
-
-    if (!state.startDate || !state.endDate) {
-      setState((prev) => ({
-        ...prev,
-        error: "Please enter start and end dates",
-      }));
-      return;
-    }
-
-    if (new Date(state.startDate) > new Date(state.endDate)) {
-      setState((prev) => ({
-        ...prev,
-        error: "Start date must be before end date",
-      }));
-      return;
-    }
-
-    if (state.pricePerUnit <= 0) {
-      setState((prev) => ({
-        ...prev,
-        error: "Price per unit must be greater than 0",
-      }));
-      return;
-    }
+  // Load data from query params and localStorage on mount
+  useEffect(() => {
+    // Load booking data from query params
+    const service = searchParams?.get("service") || "";
+    const unit = searchParams?.get("unit") || "night";
+    const pricePerUnit = Number(searchParams?.get("pricePerUnit")) || 0;
+    const startDate = searchParams?.get("startDate") || "";
+    const endDate = searchParams?.get("endDate") || "";
+    const excludedDates = searchParams?.get("excludedDates")?.split(",").filter(Boolean) || [];
+    const discounts = searchParams?.get("discounts") ? JSON.parse(searchParams.get("discounts")!) : [];
 
     setState((prev) => ({
       ...prev,
-      isReady: true,
-      error: null,
+      unit,
+      pricePerUnit,
+      startDate,
+      endDate,
+      excludedDates,
+      discounts,
     }));
-    setShowListingForm(false);
-  }
+  }, [searchParams]);
+
+  // Auto-populate booking data from query params and show summary
+  useEffect(() => {
+    const service = searchParams?.get("service");
+    const name = searchParams?.get("name");
+    const description = localStorage.getItem("venue_description");
+
+    // If we have service data, show summary directly
+    if (service && name && description) {
+      setShowListingForm(false);
+    }
+  }, [searchParams]);
 
   // Calculate units count
   const unitsCount = (() => {
@@ -104,6 +99,177 @@ export default function SummaryPage() {
   const serviceFee = +((afterDiscount + commission) * 0.01).toFixed(2);
   const total = +(afterDiscount + commission + serviceFee).toFixed(2);
 
+  async function saveListing() {
+    try {
+      // Capture current React state before async operations
+      const currentState = state;
+      
+      setState((prev) => ({
+        ...prev,
+        creating: true,
+        error: null,
+      }));
+
+      return new Promise<string>((resolve, reject) => {
+        onAuthStateChanged(auth, async (user) => {
+          if (!user) {
+            reject(new Error("User not authenticated. Please log in first."));
+            return;
+          }
+
+          const userId = user.uid;
+
+          try {
+            // Get data from query params (details page data)
+            const service = searchParams?.get("service") || "";
+            const category = searchParams?.get("category") || "";
+            const name = searchParams?.get("name") || "";
+            const address1 = searchParams?.get("address1") || "";
+            const address2 = searchParams?.get("address2") || "";
+            const country = searchParams?.get("country") || "";
+            const addressState = searchParams?.get("state") || "";
+            const city = searchParams?.get("city") || "";
+            const pincode = searchParams?.get("pincode") || "";
+            const googlePin = searchParams?.get("googlePin") || "";
+
+            // Get pricing data from query params (from step-6-booking) or use React state defaults
+            const unitFromParams = searchParams?.get("unit") || currentState.unit || "night";
+            const pricePerUnitFromParams = Number(searchParams?.get("pricePerUnit")) || currentState.pricePerUnit || 0;
+            const discountsFromParams = searchParams?.get("discounts") 
+              ? JSON.parse(searchParams.get("discounts")!) 
+              : (currentState.discounts || []);
+            
+            // Get availability dates from query params
+            const startDateFromParams = searchParams?.get("startDate") || currentState.startDate || "";
+            const endDateFromParams = searchParams?.get("endDate") || currentState.endDate || "";
+            const excludedDatesFromParams = searchParams?.get("excludedDates")?.split(",").filter(Boolean) || currentState.excludedDates || [];
+
+            // Get data from localStorage
+            const description = localStorage.getItem("venue_description") || "";
+            const featuresStr = localStorage.getItem("venue_features") || "{}";
+            const features = JSON.parse(featuresStr);
+
+            // Fetch gallery images for this user filtered by service type AND category
+            const galleryRef = collection(db, "venue_gallery");
+            let galleryQuery;
+            let images: string[] = [];
+            
+            if (category) {
+              // First try to get images filtered by both service_type and category
+              galleryQuery = query(
+                galleryRef, 
+                where("user_id", "==", userId),
+                where("service_type", "==", service),
+                where("category", "==", category)
+              );
+              const gallerySnap = await getDocs(galleryQuery);
+              gallerySnap.docs.forEach((doc) => {
+                const data = doc.data();
+                if (data.url) {
+                  images.push(data.url);
+                }
+              });
+              
+              // If no images found with category filter (backward compatibility for old images),
+              // fall back to service_type only
+              if (images.length === 0) {
+                galleryQuery = query(
+                  galleryRef, 
+                  where("user_id", "==", userId),
+                  where("service_type", "==", service)
+                );
+                const fallbackSnap = await getDocs(galleryQuery);
+                fallbackSnap.docs.forEach((doc) => {
+                  const data = doc.data();
+                  if (data.url) {
+                    images.push(data.url);
+                  }
+                });
+              }
+            } else {
+              // If no category, just filter by service_type
+              galleryQuery = query(
+                galleryRef, 
+                where("user_id", "==", userId),
+                where("service_type", "==", service)
+              );
+              const gallerySnap = await getDocs(galleryQuery);
+              gallerySnap.docs.forEach((doc) => {
+                const data = doc.data();
+                if (data.url) {
+                  images.push(data.url);
+                }
+              });
+            }
+
+            if (images.length === 0) {
+              throw new Error("Please upload at least one image before submitting.");
+            }
+
+            // Save the complete listing
+            const listingRef = await addDoc(collection(db, "listings"), {
+              service_type: service, // venue, decorator, caterer, dj, photographer
+              category,
+              name,
+              description,
+              address: {
+                address1,
+                address2,
+                country,
+                state: addressState,
+                city,
+                pincode,
+                googlePin,
+              },
+              features,
+              images,
+              unit: unitFromParams,
+              price_per_unit: pricePerUnitFromParams,
+              discounts: discountsFromParams,
+              // Availability dates
+              availability_start_date: startDateFromParams || null,
+              availability_end_date: endDateFromParams || null,
+              excluded_dates: excludedDatesFromParams,
+              // Approval status - defaults to false, needs admin approval
+              approved: false,
+              user_id: userId,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            });
+
+            const newListingId = listingRef.id;
+            setListingId(newListingId);
+            setListingSaved(true);
+
+            // Clear localStorage after saving
+            localStorage.removeItem("venue_description");
+            localStorage.removeItem("venue_features");
+
+            resolve(newListingId);
+          } catch (err) {
+            const errorMessage =
+              err instanceof Error ? err.message : "An unexpected error occurred";
+            setState((prev) => ({
+              ...prev,
+              error: errorMessage,
+              creating: false,
+            }));
+            reject(err);
+          }
+        });
+      });
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "An unexpected error occurred";
+      setState((prev) => ({
+        ...prev,
+        error: errorMessage,
+        creating: false,
+      }));
+      throw err;
+    }
+  }
+
   async function handleConfirm() {
     try {
       setState((prev) => ({
@@ -112,77 +278,80 @@ export default function SummaryPage() {
         error: null,
       }));
 
+      // First, save the listing if not already saved
+      let currentListingId = listingId || state.listingId;
+      if (!currentListingId || !listingSaved) {
+        currentListingId = await saveListing();
+        setState((prev) => ({ ...prev, listingId: currentListingId }));
+      }
+
       // Get authenticated user
-      const { data: authData, error: authError } =
-        await supabaseBrowser.auth.getUser();
+      return new Promise<void>((resolve, reject) => {
+        onAuthStateChanged(auth, async (user) => {
+          if (!user) {
+            reject(new Error("User not authenticated. Please log in first."));
+            return;
+          }
 
-      if (authError || !authData?.user?.id) {
-        throw new Error("User not authenticated. Please log in first.");
-      }
+          const userId = user.uid;
 
-      const userId = authData.user.id;
+          try {
+            // Create booking (optional - only if booking details provided)
+            if (state.startDate && state.endDate && state.pricePerUnit > 0) {
+              const bookingRef = await addDoc(collection(db, "bookings"), {
+                listing_id: currentListingId,
+                user_id: userId,
+                start_date: state.startDate,
+                end_date: state.endDate,
+                excluded_dates: state.excludedDates.length
+                  ? state.excludedDates
+                  : null,
+                unit: state.unit,
+                price_per_unit: state.pricePerUnit,
+                total_units: unitsCount,
+                subtotal,
+                discount_amount: discountAmount,
+                commission_amount: commission,
+                service_fee: serviceFee,
+                total_amount: total,
+                status: "pending",
+                service_type: searchParams?.get("service") || undefined,
+                created_at: new Date().toISOString(),
+              });
 
-      // Create booking
-      const { data: bookingData, error: insertErr } = await supabaseBrowser
-        .from("bookings")
-        .insert([
-          {
-            listing_id: state.listingId,
-            user_id: userId,
-            start_date: state.startDate,
-            end_date: state.endDate,
-            excluded_dates: state.excludedDates.length
-              ? state.excludedDates
-              : null,
-            unit: state.unit,
-            price_per_unit: state.pricePerUnit,
-            total_units: unitsCount,
-            subtotal,
-            discount_amount: discountAmount,
-            commission_amount: commission,
-            service_fee: serviceFee,
-            total_amount: total,
-            status: "pending",
-          },
-        ])
-        .select();
+            const bookingId = bookingRef.id;
 
-      if (insertErr || !bookingData || bookingData.length === 0) {
-        throw new Error(insertErr?.message ?? "Failed to create booking");
-      }
+            // Payment gateway integration is pending
+            // Skip payment for now and show message
+            alert(
+              `Service listing and booking created successfully!\n\n` +
+              `Booking ID: ${bookingId}\n` +
+              `Total Amount: ₹${total.toLocaleString("en-IN")}\n\n` +
+              `Note: Payment gateway integration is yet to be added. Your booking has been saved and will be processed once payment is integrated.`
+            );
+            } else {
+              alert("Service listing created successfully!");
+            }
 
-      const bookingId = bookingData[0].id;
-
-      // Create Razorpay order
-      const res = await fetch("/api/razorpay/create-order", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          amount: Math.round(total * 100),
-          currency: "INR",
-          bookingId,
-        }),
+            setState((prev) => ({
+              ...prev,
+              creating: false,
+            }));
+            router.push("/");
+            resolve();
+          } catch (err) {
+            const errorMessage =
+              err instanceof Error ? err.message : "An unexpected error occurred";
+            setState((prev) => ({
+              ...prev,
+              error: errorMessage,
+              creating: false,
+            }));
+            alert(errorMessage);
+            reject(err);
+          }
+        });
       });
-
-      const json = await res.json();
-
-      if (!res.ok) {
-        throw new Error(json?.message ?? "Failed to create payment order");
-      }
-
-      // TODO: Integrate Razorpay checkout here
-      // Example: window.Razorpay checkout initialization
-      alert(
-        "Order created successfully. Integrate Razorpay checkout. Order ID: " +
-          json?.id
-      );
-
-      setState((prev) => ({
-        ...prev,
-        creating: false,
-      }));
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "An unexpected error occurred";
@@ -195,153 +364,63 @@ export default function SummaryPage() {
     }
   }
 
-  // Show listing details form if not ready
-  if (showListingForm) {
-    return (
-      <div className="min-h-screen p-6 bg-[radial-gradient(circle_at_top_left,#07102a_0%,#03031a_60%)] text-white flex items-center justify-center">
-        <div className="w-full max-w-2xl bg-[#07102a]/80 p-8 rounded-xl border border-zinc-800 shadow-xl">
-          <h2 className="text-3xl font-bold mb-2">Booking Details</h2>
-          <p className="text-zinc-400 mb-6">
-            Enter your listing details and booking information to proceed.
-          </p>
 
-          {state.error && (
-            <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded text-red-200">
-              {state.error}
-            </div>
-          )}
-
-          <form onSubmit={handleListingSubmit} className="space-y-5">
-            {/* Listing ID */}
-            <div>
-              <label className="block text-sm mb-2 text-zinc-300">
-                Listing ID <span className="text-red-400">*</span>
-              </label>
-              <input
-                type="text"
-                value={state.listingId}
-                onChange={(e) =>
-                  setState((prev) => ({
-                    ...prev,
-                    listingId: e.target.value,
-                    error: null,
-                  }))
-                }
-                placeholder="Enter your listing ID"
-                className="w-full bg-zinc-900 border border-zinc-700 p-3 rounded-md focus:border-zinc-600 focus:outline-none transition"
-              />
-            </div>
-
-            {/* Dates */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm mb-2 text-zinc-300">
-                  Start Date <span className="text-red-400">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={state.startDate}
-                  onChange={(e) =>
-                    setState((prev) => ({
-                      ...prev,
-                      startDate: e.target.value,
-                      error: null,
-                    }))
-                  }
-                  className="w-full bg-zinc-900 border border-zinc-700 p-3 rounded-md focus:border-zinc-600 focus:outline-none transition"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm mb-2 text-zinc-300">
-                  End Date <span className="text-red-400">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={state.endDate}
-                  onChange={(e) =>
-                    setState((prev) => ({
-                      ...prev,
-                      endDate: e.target.value,
-                      error: null,
-                    }))
-                  }
-                  className="w-full bg-zinc-900 border border-zinc-700 p-3 rounded-md focus:border-zinc-600 focus:outline-none transition"
-                />
-              </div>
-            </div>
-
-            {/* Unit & Price */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm mb-2 text-zinc-300">
-                  Unit <span className="text-red-400">*</span>
-                </label>
-                <select
-                  value={state.unit}
-                  onChange={(e) =>
-                    setState((prev) => ({
-                      ...prev,
-                      unit: e.target.value,
-                    }))
-                  }
-                  className="w-full bg-zinc-900 border border-zinc-700 p-3 rounded-md focus:border-zinc-600 focus:outline-none transition"
-                >
-                  <option value="night">Per night</option>
-                  <option value="hour">Per hour</option>
-                  <option value="gig">Per gig</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm mb-2 text-zinc-300">
-                  Price per {state.unit}{" "}
-                  <span className="text-red-400">*</span>
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  value={state.pricePerUnit}
-                  onChange={(e) =>
-                    setState((prev) => ({
-                      ...prev,
-                      pricePerUnit: Number(e.target.value),
-                      error: null,
-                    }))
-                  }
-                  placeholder="0"
-                  className="w-full bg-zinc-900 border border-zinc-700 p-3 rounded-md focus:border-zinc-600 focus:outline-none transition"
-                />
-              </div>
-            </div>
-
-            {/* Buttons */}
-            <div className="flex gap-2 pt-4">
-              <button
-                type="submit"
-                className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 rounded-md font-semibold transition"
-              >
-                Continue →
-              </button>
-
-              <button
-                type="button"
-                onClick={() => router.back()}
-                className="px-4 py-3 bg-zinc-700 hover:bg-zinc-600 rounded-md transition"
-              >
-                Back
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    );
-  }
+  // Get listing data for display
+  const service = searchParams?.get("service") || "";
+  const category = searchParams?.get("category") || "";
+  const name = searchParams?.get("name") || "";
+  const description = localStorage.getItem("venue_description") || "";
+  const featuresStr = localStorage.getItem("venue_features") || "{}";
+  const features = JSON.parse(featuresStr);
 
   return (
     <div className="min-h-screen p-6 bg-[radial-gradient(circle_at_top_left,#07102a_0%,#03031a_60%)] text-white">
       <div className="max-w-3xl mx-auto bg-[#07102a]/80 p-6 rounded-xl border border-zinc-800">
-        <h2 className="text-2xl font-semibold mb-4">Booking Summary</h2>
+        <h2 className="text-2xl font-semibold mb-4">Service Listing Summary</h2>
+        
+        {/* Listing Details */}
+        <div className="mb-6 p-4 bg-zinc-900/50 rounded-lg border border-zinc-700">
+          <h3 className="text-lg font-semibold mb-3">Listing Details</h3>
+          <div className="space-y-2 text-sm">
+            <div>
+              <span className="text-zinc-400">Service Type: </span>
+              <span className="text-white capitalize">{service || "N/A"}</span>
+            </div>
+            <div>
+              <span className="text-zinc-400">Category: </span>
+              <span className="text-white">{category || "N/A"}</span>
+            </div>
+            <div>
+              <span className="text-zinc-400">Name: </span>
+              <span className="text-white">{name || "N/A"}</span>
+            </div>
+            {description && (
+              <div>
+                <span className="text-zinc-400">Description: </span>
+                <p className="text-white mt-1">{description}</p>
+              </div>
+            )}
+            {Object.keys(features).length > 0 && (
+              <div>
+                <span className="text-zinc-400">Features: </span>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {Object.entries(features).map(([key, value]) => (
+                    <span key={key} className="px-2 py-1 bg-blue-600/30 rounded text-xs">
+                      {key} ({value})
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Pricing Summary */}
+        {(state.startDate || state.endDate || state.pricePerUnit > 0) && (
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold mb-3">Pricing Information</h3>
+          </div>
+        )}
 
         {state.error && (
           <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded text-red-200">
@@ -426,19 +505,10 @@ export default function SummaryPage() {
             disabled={state.creating}
             className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-900 disabled:opacity-50 rounded font-medium transition"
           >
-            {state.creating ? "Processing…" : "Confirm & Pay"}
+            {state.creating ? "Saving Listing…" : "Save Listing & Continue"}
           </button>
           <button
-            onClick={() => {
-              setShowListingForm(true);
-              setState((prev) => ({
-                ...prev,
-                listingId: "",
-                startDate: "",
-                endDate: "",
-                error: null,
-              }));
-            }}
+            onClick={() => router.back()}
             disabled={state.creating}
             className="px-4 py-3 bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 rounded transition disabled:cursor-not-allowed"
           >

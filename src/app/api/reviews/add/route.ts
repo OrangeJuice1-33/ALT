@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { supabaseServer } from "@/lib/supabase/server";
+import { db } from "@/lib/firebase/server";
+import { collection, addDoc, query, where, getDocs, doc, updateDoc } from "firebase/firestore";
 
 export async function POST(req: Request) {
-  const supabase = supabaseServer();
   const body = await req.json();
   const { venue_id, user_id, rating, review_text } = body;
 
@@ -10,40 +10,35 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
-  // Insert review
-  const { error } = await supabase.from("venue_reviews").insert({
-    venue_id,
-    user_id,
-    rating,
-    review_text,
-  });
+  try {
+    // Insert review
+    await addDoc(collection(db, "venue_reviews"), {
+      venue_id,
+      user_id,
+      rating,
+      review_text: review_text || null,
+      created_at: new Date().toISOString(),
+    });
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+    // Recalculate summary fields
+    const reviewsRef = collection(db, "venue_reviews");
+    const q = query(reviewsRef, where("venue_id", "==", venue_id));
+    const querySnapshot = await getDocs(q);
 
-  // Recalculate summary fields
-  const { data: stats } = await supabase
-    .from("venue_reviews")
-    .select("rating")
-    .eq("venue_id", venue_id);
+    const stats = querySnapshot.docs.map(doc => doc.data().rating);
+    const totalReviews = stats.length;
+    const avgRating = stats.reduce((sum: number, r: number) => sum + r, 0) / totalReviews;
 
-  if (!stats) {
-    return NextResponse.json({ error: "Failed to fetch review stats" }, { status: 500 });
-  }
-
-  const totalReviews = stats.length;
-  const avgRating =
-    stats.reduce((sum: number, r: any) => sum + r.rating, 0) / totalReviews;
-
-  await supabase
-    .from("venue_listings")
-    .update({
+    // Update venue listing
+    const venueRef = doc(db, "venue_listings", venue_id);
+    await updateDoc(venueRef, {
       review_count: totalReviews,
       average_rating: avgRating,
       popularity_score: totalReviews,
-    })
-    .eq("id", venue_id);
+    });
 
-  return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 }

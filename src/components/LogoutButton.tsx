@@ -1,14 +1,15 @@
 "use client";
 
-import { supabaseBrowser } from "@/lib/supabase/client";
+import { auth } from "@/lib/firebase/config";
+import { signOut } from "firebase/auth";
 import { useRouter } from "next/navigation";
 
 export default function LogoutButton() {
   const router = useRouter();
 
   async function logout() {
-    await supabaseBrowser.auth.signOut();
-    document.cookie = "sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    await signOut(auth);
+    document.cookie = "firebase-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
     router.push("/auth");
   }
 

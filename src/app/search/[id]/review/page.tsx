@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { supabaseBrowser } from "@/lib/supabase/client";
+import { auth, db } from "@/lib/firebase/config";
+import { onAuthStateChanged } from "firebase/auth";
+import { collection, addDoc, query, where, getDocs, doc, updateDoc } from "firebase/firestore";
 
 export default function ReviewPage() {
   const params = useParams();
@@ -14,33 +16,51 @@ export default function ReviewPage() {
   const [review, setReview] = useState("");
 
   async function submit() {
-    const { data } = await supabaseBrowser.auth.getUser();
+    return new Promise<void>((resolve) => {
+      onAuthStateChanged(auth, async (user) => {
+        if (!user) {
+          alert("Please sign in to leave a review.");
+          router.push("/auth");
+          resolve();
+          return;
+        }
 
-    if (!data?.user) {
-      alert("Please sign in to leave a review.");
-      router.push("/auth");
-      return;
-    }
+        try {
+          // Insert review using client-side Firebase with user authentication
+          await addDoc(collection(db, "venue_reviews"), {
+            venue_id: id,
+            user_id: user.uid,
+            rating,
+            review_text: review || null,
+            created_at: new Date().toISOString(),
+          });
 
-    const res = await fetch("/api/reviews/add", {
-      method: "POST",
-      body: JSON.stringify({
-        venue_id: id,
-        user_id: data.user.id,
-        rating,
-        review_text: review,
-      }),
+          // Recalculate summary fields
+          const reviewsRef = collection(db, "venue_reviews");
+          const q = query(reviewsRef, where("venue_id", "==", id));
+          const querySnapshot = await getDocs(q);
+
+          const stats = querySnapshot.docs.map(doc => doc.data().rating);
+          const totalReviews = stats.length;
+          const avgRating = stats.reduce((sum: number, r: number) => sum + r, 0) / totalReviews;
+
+          // Update listing (using "listings" collection, not "venue_listings")
+          const listingRef = doc(db, "listings", id);
+          await updateDoc(listingRef, {
+            review_count: totalReviews,
+            average_rating: avgRating,
+            popularity_score: totalReviews,
+          });
+
+          alert("Review submitted!");
+          router.push(`/search/${id}`);
+        } catch (error: any) {
+          console.error("Error submitting review:", error);
+          alert(`Error: ${error.message}`);
+        }
+        resolve();
+      });
     });
-
-    const result = await res.json();
-
-    if (result.error) {
-      alert(result.error);
-      return;
-    }
-
-    alert("Review submitted!");
-    router.push(`/search/${id}`);
   }
 
   return (

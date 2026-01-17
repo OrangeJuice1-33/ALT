@@ -3,7 +3,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabaseBrowser } from "@/lib/supabase/client";
+import { auth, db } from "@/lib/firebase/config";
+import { onAuthStateChanged, updateProfile, updateEmail, updatePassword } from "firebase/auth";
+import { doc, getDoc, setDoc, collection, query, where, getDocs } from "firebase/firestore";
 import ProfileImageUploader from "@/components/ProfileImageUploader";
 
 export default function CompleteProfilePage() {
@@ -19,16 +21,18 @@ export default function CompleteProfilePage() {
   const router = useRouter();
 
   useEffect(() => {
-    let mounted = true;
-    supabaseBrowser.auth.getUser().then(({ data }) => {
-      if (!mounted) return;
-      setUser(data.user ?? null);
-      setPhone(data.user?.phone ?? "");
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUser(user);
+        setPhone(user.phoneNumber ?? "");
+        setEmail(user.email ?? "");
+      } else {
+        setUser(null);
+      }
       setLoading(false);
     });
-    return () => {
-      mounted = false;
-    };
+
+    return () => unsubscribe();
   }, []);
 
   if (loading) return <div className="p-8 text-white">Loading…</div>;
@@ -47,13 +51,10 @@ export default function CompleteProfilePage() {
 
     // Validation: username unique
     if (username) {
-      const { data: existingUsername } = await supabaseBrowser
-        .from("profiles")
-        .select("id")
-        .eq("username", username)
-        .maybeSingle();
-
-      if (existingUsername) {
+      const profilesRef = collection(db, "profiles");
+      const q = query(profilesRef, where("username", "==", username));
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty && querySnapshot.docs[0].id !== user.id) {
         alert("Username already taken.");
         setLoading(false);
         return;
@@ -62,56 +63,56 @@ export default function CompleteProfilePage() {
 
     // Validation: email unique
     if (email) {
-      const { data: existingEmail } = await supabaseBrowser
-        .from("profiles")
-        .select("id")
-        .eq("email", email)
-        .maybeSingle();
-
-      if (existingEmail) {
+      const profilesRef = collection(db, "profiles");
+      const q = query(profilesRef, where("email", "==", email));
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty && querySnapshot.docs[0].id !== user.id) {
         alert("Email already registered.");
         setLoading(false);
         return;
       }
     }
 
-    // If user signed up by email & wants credentials set, update user with password/email (if password provided).
+    // Update Firebase Auth profile if needed
     try {
-      if (email || password) {
-        const { error: updateErr } = await supabaseBrowser.auth.updateUser({
-          email: email || undefined,
-          password: password || undefined,
+      if (email && email !== user.email) {
+        await updateEmail(user, email);
+      }
+      if (password) {
+        await updatePassword(user, password);
+      }
+      if (fullName || profileImage) {
+        await updateProfile(user, {
+          displayName: fullName || user.displayName || undefined,
+          photoURL: profileImage || user.photoURL || undefined,
         });
-
-        if (updateErr) {
-          alert(updateErr.message);
-          setLoading(false);
-          return;
-        }
       }
     } catch (err: any) {
-      console.error(err);
-    }
-
-    const profile = {
-      id: user.id,
-      full_name: fullName || null,
-      username: username || null,
-      email: email || null,
-      phone: phone || null,
-      profile_image: profileImage || null,
-      created_at: new Date().toISOString(),
-    };
-
-    const { error } = await supabaseBrowser.from("profiles").upsert(profile);
-
-    if (error) {
-      alert(error.message);
+      alert(err.message);
       setLoading(false);
       return;
     }
 
-    router.push("/dashboard");
+    // Save profile to Firestore
+    const profile = {
+      full_name: fullName || null,
+      username: username || null,
+      email: email || user.email || null,
+      phone: phone || null,
+      profile_image: profileImage || null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    try {
+      await setDoc(doc(db, "profiles", user.uid), profile, { merge: true });
+    } catch (err: any) {
+      alert(err.message);
+      setLoading(false);
+      return;
+    }
+
+    router.push("/");
     setLoading(false);
   }
 

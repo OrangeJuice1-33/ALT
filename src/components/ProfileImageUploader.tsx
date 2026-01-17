@@ -2,7 +2,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { supabaseBrowser } from "@/lib/supabase/client";
+import { storage } from "@/lib/firebase/config";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 type Props = {
   userId: string;
@@ -18,22 +19,18 @@ export default function ProfileImageUploader({ userId, onUpload }: Props) {
     if (!file) return;
     setUploading(true);
     const ext = file.name.split(".").pop();
-    const filePath = `avatars/${userId}-${Date.now()}.${ext}`;
+    const filePath = `profiles/avatars/${userId}-${Date.now()}.${ext}`;
 
-    const { error } = await supabaseBrowser.storage.from("profiles").upload(filePath, file, {
-      cacheControl: "3600",
-      upsert: true,
-    });
-
-    if (error) {
+    try {
+      const storageRef = ref(storage, filePath);
+      await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(storageRef);
+      onUpload(downloadURL);
+    } catch (error: any) {
       alert(error.message);
+    } finally {
       setUploading(false);
-      return;
     }
-
-    const { data } = supabaseBrowser.storage.from("profiles").getPublicUrl(filePath);
-    onUpload(data.publicUrl);
-    setUploading(false);
   }
 
   return (
