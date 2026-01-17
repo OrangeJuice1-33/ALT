@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { auth, db } from "@/lib/firebase/config";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, addDoc, getDocs, query, where } from "firebase/firestore";
@@ -19,7 +19,7 @@ interface SummaryState {
   error: string | null;
 }
 
-export default function SummaryPage() {
+function SummaryPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -517,5 +517,19 @@ export default function SummaryPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SummaryPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen p-6 bg-[radial-gradient(circle_at_top_left,#07102a_0%,#03031a_60%)] text-white">
+        <div className="max-w-3xl mx-auto bg-[#07102a]/80 p-6 rounded-xl border border-zinc-800">
+          <div className="text-center">Loading...</div>
+        </div>
+      </div>
+    }>
+      <SummaryPageContent />
+    </Suspense>
   );
 }

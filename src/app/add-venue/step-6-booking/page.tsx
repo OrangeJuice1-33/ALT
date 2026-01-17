@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { format, addDays, eachDayOfInterval } from "date-fns";
 
@@ -24,7 +24,7 @@ interface BookingState {
   error: string | null;
 }
 
-export default function Step6Booking() {
+function Step6BookingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const today = new Date();
@@ -446,5 +446,19 @@ export default function Step6Booking() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Step6Booking() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen p-6 bg-[radial-gradient(circle_at_top_left,#07102a_0%,#03031a_60%)] text-white">
+        <div className="max-w-4xl mx-auto bg-[#07102a]/80 p-6 rounded-xl border border-zinc-800">
+          <div className="text-center">Loading...</div>
+        </div>
+      </div>
+    }>
+      <Step6BookingContent />
+    </Suspense>
   );
 }

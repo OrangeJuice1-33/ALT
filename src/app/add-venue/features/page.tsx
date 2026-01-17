@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 const SERVICE_FEATURES: Record<string, string[]> = {
@@ -99,7 +99,7 @@ const SERVICE_NAMES: Record<string, string> = {
   photographer: "Photographer",
 };
 
-export default function VenueFeaturesPage() {
+function VenueFeaturesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
@@ -208,5 +208,19 @@ export default function VenueFeaturesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function VenueFeaturesPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#07102a_0%,#03031a_60%)] text-white p-6">
+        <div className="max-w-3xl mx-auto bg-[#07102a]/80 border border-zinc-800 rounded-xl p-6 shadow-lg">
+          <div className="text-center">Loading...</div>
+        </div>
+      </div>
+    }>
+      <VenueFeaturesContent />
+    </Suspense>
   );
 }

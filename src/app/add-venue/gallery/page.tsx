@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { storage, db, auth } from "@/lib/firebase/config";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -53,7 +53,7 @@ const SERVICE_GALLERY_INFO: Record<string, {
   },
 };
 
-export default function VenueGalleryPage() {
+function VenueGalleryContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [items, setItems] = useState<GalleryItem[]>([]);
@@ -256,5 +256,19 @@ export default function VenueGalleryPage() {
         </button>
       </div>
     </div>
+  );
+}
+
+export default function VenueGalleryPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(circle_at_top_left,#07102a_0%,#03031a_60%)] p-6 text-white">
+        <div className="max-w-3xl w-full bg-[#07102a]/90 p-8 rounded-xl border border-zinc-800 shadow-xl">
+          <div className="text-center">Loading...</div>
+        </div>
+      </div>
+    }>
+      <VenueGalleryContent />
+    </Suspense>
   );
 }

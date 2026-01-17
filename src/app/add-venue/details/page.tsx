@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import { STATE_CITIES_MAP, STATES, REGION_MAP } from "@/components/FilterBar";
 
 interface VenueDetailsState {
@@ -18,7 +18,7 @@ interface VenueDetailsState {
   googlePin: string;
 }
 
-export default function Step2VenueDetails() {
+function Step2VenueDetailsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -480,5 +480,19 @@ export default function Step2VenueDetails() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function Step2VenueDetails() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(circle_at_top_left,#07102a_0%,#03031a_60%)] p-6 text-white">
+        <div className="w-full max-w-2xl bg-[#07102a]/80 border border-zinc-800 rounded-xl p-8 shadow-xl">
+          <div className="text-center">Loading...</div>
+        </div>
+      </div>
+    }>
+      <Step2VenueDetailsContent />
+    </Suspense>
   );
 }
