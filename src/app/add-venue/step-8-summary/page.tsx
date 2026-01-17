@@ -404,9 +404,9 @@ export default function SummaryPage() {
               <div>
                 <span className="text-zinc-400">Features: </span>
                 <div className="mt-1 flex flex-wrap gap-2">
-                  {Object.entries(features).map(([key, value]) => (
+                  {Object.entries(features as Record<string, string | number>).map(([key, value]) => (
                     <span key={key} className="px-2 py-1 bg-blue-600/30 rounded text-xs">
-                      {key} ({value})
+                      {key} ({String(value)})
                     </span>
                   ))}
                 </div>
