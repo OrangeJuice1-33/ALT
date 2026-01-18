@@ -27,29 +27,29 @@ const SERVICE_GALLERY_INFO: Record<string, {
   minImages: number;
 }> = {
   venue: {
-    description: "Upload at least 5 images showcasing your venue's spaces, amenities, and atmosphere. Each image requires a caption.",
+    description: "Upload at least 1 image showcasing your venue's spaces, amenities, and atmosphere. Each image requires a caption.",
     placeholder: "Describe this venue space...",
-    minImages: 5,
+    minImages: 1,
   },
   decorator: {
-    description: "Upload at least 5 images of your decoration work, themes, and setups. Each image requires a caption.",
+    description: "Upload at least 1 image of your decoration work, themes, and setups. Each image requires a caption.",
     placeholder: "Describe this decoration design...",
-    minImages: 5,
+    minImages: 1,
   },
   caterer: {
-    description: "Upload at least 5 images of your food presentations, setups, and menu items. Each image requires a caption.",
+    description: "Upload at least 1 image of your food presentations, setups, and menu items. Each image requires a caption.",
     placeholder: "Describe this dish/presentation...",
-    minImages: 5,
+    minImages: 1,
   },
   dj: {
-    description: "Upload at least 5 images of your DJ setup, events, equipment, and performance. Each image requires a caption.",
+    description: "Upload at least 1 image of your DJ setup, events, equipment, and performance. Each image requires a caption.",
     placeholder: "Describe this DJ setup/event...",
-    minImages: 5,
+    minImages: 1,
   },
   photographer: {
-    description: "Upload at least 5 images showcasing your photography work, style, and portfolio. Each image requires a caption.",
+    description: "Upload at least 1 image showcasing your photography work, style, and portfolio. Each image requires a caption.",
     placeholder: "Describe this photography work...",
-    minImages: 5,
+    minImages: 1,
   },
 };
 
@@ -79,13 +79,6 @@ function VenueGalleryContent() {
   function addItem(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
-
-    const maxToAdd = galleryInfo.minImages - items.length;
-    if (files.length > maxToAdd) {
-      setError(`You can only add ${maxToAdd} more image${maxToAdd === 1 ? '' : 's'}. Maximum ${galleryInfo.minImages} images allowed.`);
-      e.target.value = ""; // Reset input
-      return;
-    }
 
     const validFiles: GalleryItem[] = [];
     
@@ -179,10 +172,12 @@ function VenueGalleryContent() {
 
       setUploading(false);
       
-      // Preserve service type and category in the URL
+      // Preserve service type, category, and name in the URL
+      const name = searchParams?.get("name") || "";
       const query = new URLSearchParams({
         ...(service && { service }),
         ...(category && { category }),
+        ...(name && { name }),
       }).toString();
       router.push(`/add-venue/step-6-booking?${query}`);
     } catch (err) {
@@ -211,13 +206,13 @@ function VenueGalleryContent() {
             accept="image/*"
             multiple
             onChange={addItem}
-            disabled={uploading || items.length >= galleryInfo.minImages}
+            disabled={uploading}
             className="mb-2 block"
           />
           <p className="text-xs text-zinc-500">
-            {items.length < galleryInfo.minImages
-              ? `You can select up to ${galleryInfo.minImages - items.length} image${galleryInfo.minImages - items.length === 1 ? '' : 's'} at once (${items.length}/${galleryInfo.minImages} selected)`
-              : `Maximum ${galleryInfo.minImages} images reached`}
+            {items.length === 0
+              ? `Upload at least ${galleryInfo.minImages} image. You can add multiple images.`
+              : `${items.length} image${items.length === 1 ? '' : 's'} uploaded. You can add more if needed.`}
           </p>
         </div>
 

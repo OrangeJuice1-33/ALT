@@ -238,7 +238,7 @@ export default function MostPopularPage() {
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#07102a_0%,#03031a_60%)] text-white p-6">
       <div className="max-w-7xl mx-auto">
         
-        <h1 className="text-4xl font-bold mb-6">🔥 Most Popular</h1>
+        <h1 className="text-4xl font-bold mb-6">Most Popular</h1>
 
         {/* FULL FILTER BAR */}
         <FilterBar

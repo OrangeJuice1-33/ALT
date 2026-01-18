@@ -5,7 +5,7 @@ export default function MostPopular() {
 
   return (
     <div className="p-8 text-white">
-      <h1 className="text-3xl font-bold mb-4">🔥 Most Popular Venues</h1>
+      <h1 className="text-3xl font-bold mb-4">Most Popular Venues</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {sorted.map((venue) => (

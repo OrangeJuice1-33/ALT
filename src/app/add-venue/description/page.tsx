@@ -32,10 +32,12 @@ function VenueDescriptionContent() {
     // store temporarily in localStorage (until final submit)
     localStorage.setItem("venue_description", description.trim());
     
-    // Preserve service type and category in the URL
+    // Preserve service type, category, and name in the URL
+    const name = searchParams?.get("name") || "";
     const query = new URLSearchParams({
       service,
       ...(category && { category }),
+      ...(name && { name }),
     }).toString();
     router.push(`/add-venue/features?${query}`);
   };

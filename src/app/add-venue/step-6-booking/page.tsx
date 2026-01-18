@@ -2,11 +2,11 @@
 
 import { useState, useMemo, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { format, addDays, eachDayOfInterval } from "date-fns";
+import { format, addDays, eachDayOfInterval, parseISO } from "date-fns";
 
-// Utility
+// Utility - format date as YYYY-MM-DD using local time (not UTC)
 function dateToISO(d: Date) {
-  return d.toISOString().slice(0, 10);
+  return format(d, 'yyyy-MM-dd');
 }
 
 interface BookingState {
@@ -56,8 +56,8 @@ function Step6BookingContent() {
   }, [searchParams]);
 
   const dateRangeDays = useMemo(() => {
-    const s = new Date(state.startDate);
-    const e = new Date(state.endDate);
+    const s = parseISO(state.startDate);
+    const e = parseISO(state.endDate);
     if (s > e) return [];
 
     return eachDayOfInterval({ start: s, end: e }).map((d) => dateToISO(d));
@@ -148,6 +148,7 @@ function Step6BookingContent() {
     }
 
     const category = searchParams?.get("category") || "";
+    const name = searchParams?.get("name") || "";
     const query = new URLSearchParams({
       service: state.service,
       unit: state.unit,
@@ -157,6 +158,7 @@ function Step6BookingContent() {
       excludedDates: state.excludedDates.join(","),
       discounts: JSON.stringify(state.discounts),
       ...(category && { category }),
+      ...(name && { name }),
     }).toString();
 
     router.push(`/add-venue/step-8-summary?${query}`);
@@ -239,7 +241,7 @@ function Step6BookingContent() {
                     !state.excludeMode ? "opacity-50 cursor-not-allowed" : ""
                   }`}
                 >
-                  {format(new Date(d), "dd MMM")}
+                  {format(parseISO(d), "dd MMM")}
                 </button>
               ))}
             </div>

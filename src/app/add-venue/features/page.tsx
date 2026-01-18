@@ -136,11 +136,13 @@ function VenueFeaturesContent() {
     }
     localStorage.setItem("venue_features", JSON.stringify(selected));
     
-    // Preserve service type and category in the URL
+    // Preserve service type, category, and name in the URL
     const category = searchParams?.get("category") || "";
+    const name = searchParams?.get("name") || "";
     const query = new URLSearchParams({
       service,
       ...(category && { category }),
+      ...(name && { name }),
     }).toString();
     router.push(`/add-venue/gallery?${query}`);
   };
