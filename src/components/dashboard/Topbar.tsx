@@ -17,11 +17,6 @@ export function Topbar({ onMenuClick }: TopbarProps) {
       >
         <Menu size={20} />
       </Button>
-
-      {/* Right side */}
-      <div className="flex items-center gap-4">
-        <div className="w-8 h-8 rounded-full bg-zinc-700" />
-      </div>
     </header>
   );
 }

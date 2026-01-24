@@ -98,7 +98,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <Link href="/add-venue" className="hover:text-white transition-colors">Add your venue</Link>
                 <Link href="/most-popular" className="hover:text-white transition-colors">Most popular</Link>
                 <Link href="/top-rated" className="hover:text-white transition-colors">Top rated</Link>
-                <Link href="/about" className="hover:text-white transition-colors">About</Link>
+                <Link href="/#about" className="hover:text-white transition-colors">About</Link>
               </div>
 
               {/* Right: Settings or auth buttons */}
@@ -148,6 +148,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                             onClick={() => setShowDropdown(false)}
                           >
                             Add your venue/service
+                          </Link>
+                          <Link
+                            href="/dashboard/settings?edit=1"
+                            className="block px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer relative z-[51]"
+                            onClick={() => setShowDropdown(false)}
+                          >
+                            Edit profile
                           </Link>
                           <button
                             type="button"

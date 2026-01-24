@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { format, addDays, eachDayOfInterval, parseISO } from "date-fns";
+import { markStepComplete, STEPS, arePreviousStepsComplete, getFirstIncompleteStepUrl } from "@/lib/venue-steps";
 
 // Utility - format date as YYYY-MM-DD using local time (not UTC)
 function dateToISO(d: Date) {
@@ -43,6 +44,15 @@ function Step6BookingContent() {
     discPercent: 5,
     error: null,
   });
+
+  // Check if previous steps are completed
+  useEffect(() => {
+    if (!arePreviousStepsComplete(STEPS.BOOKING)) {
+      // Redirect to the first incomplete step
+      router.replace(getFirstIncompleteStepUrl());
+      return;
+    }
+  }, [router]);
 
   // Load service type from URL params
   useEffect(() => {
@@ -161,6 +171,9 @@ function Step6BookingContent() {
       ...(name && { name }),
     }).toString();
 
+    // Mark step 6 as complete before navigating
+    markStepComplete(STEPS.BOOKING);
+    
     router.push(`/add-venue/step-8-summary?${query}`);
   }
 

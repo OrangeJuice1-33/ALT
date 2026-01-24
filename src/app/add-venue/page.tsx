@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { markStepComplete, STEPS, arePreviousStepsComplete } from "@/lib/venue-steps";
 
 const SERVICES = [
   {
@@ -26,6 +28,7 @@ const SERVICES = [
 ];
 
 export default function AddVenuePage() {
+  const router = useRouter();
   const [selected, setSelected] = useState<string | null>(null);
   const [selectedSubtype, setSelectedSubtype] = useState<string>("");
 
@@ -38,8 +41,19 @@ export default function AddVenuePage() {
     "Photographers": "photographer",
   };
 
+  // Check if previous steps are completed (Step 1 has no previous steps, so always allow)
+  useEffect(() => {
+    if (!arePreviousStepsComplete(STEPS.SELECT_SERVICE)) {
+      // This shouldn't happen for step 1, but just in case
+      return;
+    }
+  }, []);
+
   function handleContinue() {
     if (!selected || !selectedSubtype) return;
+    
+    // Mark step 1 as complete
+    markStepComplete(STEPS.SELECT_SERVICE);
     
     const serviceValue = serviceNameToValue[selected] || selected.toLowerCase();
     const query = new URLSearchParams({
@@ -47,7 +61,7 @@ export default function AddVenuePage() {
       category: selectedSubtype,
     }).toString();
     
-    window.location.href = `/add-venue/details?${query}`;
+    router.push(`/add-venue/details?${query}`);
   }
 
   return (

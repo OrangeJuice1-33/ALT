@@ -5,6 +5,7 @@ import { useState, useEffect, Suspense } from "react";
 import { auth, db } from "@/lib/firebase/config";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, addDoc, getDocs, query, where } from "firebase/firestore";
+import { markStepComplete, STEPS, arePreviousStepsComplete, getFirstIncompleteStepUrl, clearSession } from "@/lib/venue-steps";
 
 interface SummaryState {
   listingId: string;
@@ -38,6 +39,15 @@ function SummaryPageContent() {
     creating: false,
     error: null,
   });
+
+  // Check if previous steps are completed
+  useEffect(() => {
+    if (!arePreviousStepsComplete(STEPS.SUMMARY)) {
+      // Redirect to the first incomplete step
+      router.replace(getFirstIncompleteStepUrl());
+      return;
+    }
+  }, [router]);
 
   // Load data from query params and localStorage on mount
   useEffect(() => {
@@ -337,6 +347,13 @@ function SummaryPageContent() {
               ...prev,
               creating: false,
             }));
+            
+            // Mark step 7 as complete before navigating
+            markStepComplete(STEPS.SUMMARY);
+            
+            // Clear the session after successful completion
+            clearSession();
+            
             router.push("/");
             resolve();
           } catch (err) {

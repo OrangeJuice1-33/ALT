@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { collection, addDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
+import { markStepComplete, STEPS, arePreviousStepsComplete, getFirstIncompleteStepUrl } from "@/lib/venue-steps";
 
 interface GalleryItem {
   tempUrl: string;
@@ -66,6 +67,13 @@ function VenueGalleryContent() {
   const galleryInfo = SERVICE_GALLERY_INFO[service] || SERVICE_GALLERY_INFO.venue;
 
   useEffect(() => {
+    // Check if previous steps are completed
+    if (!arePreviousStepsComplete(STEPS.GALLERY)) {
+      // Redirect to the first incomplete step
+      router.replace(getFirstIncompleteStepUrl());
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         setUserId(user.uid);
@@ -74,7 +82,7 @@ function VenueGalleryContent() {
       }
     });
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
   function addItem(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || []);
@@ -171,6 +179,9 @@ function VenueGalleryContent() {
       }
 
       setUploading(false);
+      
+      // Mark step 5 as complete before navigating
+      markStepComplete(STEPS.GALLERY);
       
       // Preserve service type, category, and name in the URL
       const name = searchParams?.get("name") || "";

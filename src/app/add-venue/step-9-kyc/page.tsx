@@ -1,9 +1,19 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { STEPS, arePreviousStepsComplete, getFirstIncompleteStepUrl } from "@/lib/venue-steps";
 
 export default function KYCPage() {
   const router = useRouter();
+
+  // Check if previous steps are completed
+  useEffect(() => {
+    if (!arePreviousStepsComplete(STEPS.KYC)) {
+      // Redirect to the first incomplete step
+      router.replace(getFirstIncompleteStepUrl());
+    }
+  }, [router]);
 
   return (
     <div className="min-h-screen p-6 bg-[radial-gradient(circle_at_top_left,#07102a_0%,#03031a_60%)] text-white">

@@ -39,12 +39,15 @@ export default function AuthListener() {
         document.cookie = "firebase-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
         
         // Only redirect to auth if trying to access protected routes
-        // Allow public routes like /add-venue, /, /search, etc.
-        const protectedRoutes = ["/admin", "/auth/complete-profile"];
+        const protectedRoutes = ["/admin", "/auth/complete-profile", "/add-venue"];
         const isProtectedRoute = protectedRoutes.some(route => pathname?.startsWith(route));
         
         if (isProtectedRoute) {
-          router.push("/auth");
+          if (pathname?.startsWith("/add-venue")) {
+            router.push("/auth/signup");
+          } else {
+            router.push("/auth");
+          }
         }
       }
     });

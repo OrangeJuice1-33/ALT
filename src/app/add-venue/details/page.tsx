@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useMemo, Suspense } from "react";
 import { STATE_CITIES_MAP, STATES, REGION_MAP } from "@/components/FilterBar";
+import { markStepComplete, STEPS, arePreviousStepsComplete, getFirstIncompleteStepUrl } from "@/lib/venue-steps";
 
 interface VenueDetailsState {
   service: string;
@@ -21,6 +22,14 @@ interface VenueDetailsState {
 function Step2VenueDetailsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Check if previous steps are completed
+  useEffect(() => {
+    if (!arePreviousStepsComplete(STEPS.DETAILS)) {
+      // Redirect to the first incomplete step
+      router.replace(getFirstIncompleteStepUrl());
+    }
+  }, [router]);
 
   const [formData, setFormData] = useState<VenueDetailsState>({
     service: "",
@@ -182,6 +191,9 @@ function Step2VenueDetailsContent() {
       googlePin: formData.googlePin.trim(),
     }).toString();
 
+    // Mark step 2 as complete before navigating
+    markStepComplete(STEPS.DETAILS);
+    
     router.push(`/add-venue/description?${query}`);
     setIsSubmitting(false);
   }

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { markStepComplete, STEPS, arePreviousStepsComplete, getFirstIncompleteStepUrl } from "@/lib/venue-steps";
 
 const SERVICE_NAMES: Record<string, string> = {
   venue: "Venue",
@@ -23,6 +24,14 @@ function VenueDescriptionContent() {
   const MIN = 50;
   const MAX = 100;
 
+  // Check if previous steps are completed
+  useEffect(() => {
+    if (!arePreviousStepsComplete(STEPS.DESCRIPTION)) {
+      // Redirect to the first incomplete step
+      router.replace(getFirstIncompleteStepUrl());
+    }
+  }, [router]);
+
   const handleNext = () => {
     const length = description.trim().split(" ").length;
     if (length < MIN || length > MAX) {
@@ -31,6 +40,9 @@ function VenueDescriptionContent() {
     }
     // store temporarily in localStorage (until final submit)
     localStorage.setItem("venue_description", description.trim());
+    
+    // Mark step 3 as complete before navigating
+    markStepComplete(STEPS.DESCRIPTION);
     
     // Preserve service type, category, and name in the URL
     const name = searchParams?.get("name") || "";

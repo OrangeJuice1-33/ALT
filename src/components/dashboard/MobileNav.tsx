@@ -2,7 +2,7 @@
 
 import { Sheet, SheetContent, SheetHeader } from "@/components/sheet";
 import { NavLink } from "./NavLink";
-import { Home, BarChart2, Settings } from "lucide-react";
+import { Settings } from "lucide-react";
 
 interface MobileNavProps {
   open: boolean;
@@ -18,8 +18,6 @@ export function MobileNav({ open, setOpen }: MobileNavProps) {
         </SheetHeader>
 
         <nav className="mt-4 flex flex-col gap-2">
-          <NavLink href="/dashboard" label="Dashboard" icon={<Home size={18} />} />
-          <NavLink href="/dashboard/analytics" label="Analytics" icon={<BarChart2 size={18} />} />
           <NavLink href="/dashboard/settings" label="Settings" icon={<Settings size={18} />} />
         </nav>
       </SheetContent>

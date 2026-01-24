@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { Menu } from "lucide-react";
 import { Sidebar } from "@/components/dashboard/Sidebar";
-import { Topbar } from "@/components/dashboard/Topbar";
 import { MobileNav } from "@/components/dashboard/MobileNav";
+import { Button } from "@/components/button";
 
 export default function DashboardLayout({
   children,
@@ -22,7 +23,14 @@ export default function DashboardLayout({
 
       {/* Main content */}
       <div className="flex flex-col flex-1">
-        <Topbar onMenuClick={() => setOpen(true)} />
+        <Button
+          variant="ghost"
+          className="md:hidden fixed top-4 left-4 z-50 text-zinc-300"
+          onClick={() => setOpen(true)}
+          aria-label="Open menu"
+        >
+          <Menu size={20} />
+        </Button>
         <main className="p-6">{children}</main>
       </div>
     </div>

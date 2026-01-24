@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { markStepComplete, STEPS, arePreviousStepsComplete, getFirstIncompleteStepUrl } from "@/lib/venue-steps";
 
 const SERVICE_FEATURES: Record<string, string[]> = {
   venue: [
@@ -111,6 +112,14 @@ function VenueFeaturesContent() {
   const serviceName = SERVICE_NAMES[service] || "Service";
   const allFeatures = SERVICE_FEATURES[service] || SERVICE_FEATURES.venue;
 
+  // Check if previous steps are completed
+  useEffect(() => {
+    if (!arePreviousStepsComplete(STEPS.FEATURES)) {
+      // Redirect to the first incomplete step
+      router.replace(getFirstIncompleteStepUrl());
+    }
+  }, [router]);
+
   const filtered = allFeatures.filter((item) =>
     item.toLowerCase().includes(search.toLowerCase())
   );
@@ -135,6 +144,9 @@ function VenueFeaturesContent() {
       return;
     }
     localStorage.setItem("venue_features", JSON.stringify(selected));
+    
+    // Mark step 4 as complete before navigating
+    markStepComplete(STEPS.FEATURES);
     
     // Preserve service type, category, and name in the URL
     const category = searchParams?.get("category") || "";

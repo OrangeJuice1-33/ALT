@@ -14,9 +14,18 @@ export function middleware(req: NextRequest) {
     }
   }
 
+  // Protect add-venue routes
+  if (url.pathname.startsWith("/add-venue")) {
+    if (!token) {
+      const redirectUrl = url.clone();
+      redirectUrl.pathname = "/auth/signup";
+      return NextResponse.redirect(redirectUrl);
+    }
+  }
+
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: ["/admin/:path*", "/add-venue/:path*"],
 };
