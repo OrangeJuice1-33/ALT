@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase/config";
 import { onAuthStateChanged } from "firebase/auth";
@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/table";
 import { Badge } from "@/components/badge";
+import { Input } from "@/components/input";
 
 interface ListingData {
   id: string;
@@ -55,6 +56,12 @@ export default function AdminDashboard() {
   const [listings, setListings] = useState<ListingData[]>([]);
   const [expandedListing, setExpandedListing] = useState<string | null>(null);
   const router = useRouter();
+
+  // Filter states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [serviceTypeFilter, setServiceTypeFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [locationFilter, setLocationFilter] = useState<string>("");
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -144,6 +151,58 @@ export default function AdminDashboard() {
     return () => unsubscribe();
   }, [router]);
 
+  // Filter listings based on search and filters
+  const filteredListings = useMemo(() => {
+    return listings.filter((listing) => {
+      // Search query filter (searches in name, service type, category, location, owner name/email)
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch =
+          listing.name.toLowerCase().includes(query) ||
+          listing.service_type.toLowerCase().includes(query) ||
+          listing.category.toLowerCase().includes(query) ||
+          listing.address.city.toLowerCase().includes(query) ||
+          listing.address.state.toLowerCase().includes(query) ||
+          listing.user_name?.toLowerCase().includes(query) ||
+          listing.user_email?.toLowerCase().includes(query) ||
+          listing.description?.toLowerCase().includes(query);
+        
+        if (!matchesSearch) return false;
+      }
+
+      // Service type filter
+      if (serviceTypeFilter !== "all" && listing.service_type !== serviceTypeFilter) {
+        return false;
+      }
+
+      // Status filter
+      if (statusFilter === "approved" && !listing.approved) {
+        return false;
+      }
+      if (statusFilter === "pending" && listing.approved) {
+        return false;
+      }
+
+      // Location filter
+      if (locationFilter) {
+        const location = locationFilter.toLowerCase();
+        const matchesLocation =
+          listing.address.city.toLowerCase().includes(location) ||
+          listing.address.state.toLowerCase().includes(location);
+        
+        if (!matchesLocation) return false;
+      }
+
+      return true;
+    });
+  }, [listings, searchQuery, serviceTypeFilter, statusFilter, locationFilter]);
+
+  // Get unique service types for filter dropdown
+  const uniqueServiceTypes = useMemo(() => {
+    const types = new Set(listings.map(l => l.service_type));
+    return Array.from(types).sort();
+  }, [listings]);
+
   if (checkingAuth || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(circle_at_top_left,#07102a_0%,#03031a_60%)] p-6 text-white">
@@ -217,6 +276,144 @@ export default function AdminDashboard() {
           <p className="text-zinc-400">All service listings (venues, decorators, caterers, DJs, photographers)</p>
         </div>
 
+        {/* Search and Filter Section */}
+        <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Search Input */}
+            <div className="lg:col-span-2">
+              <label className="block text-sm font-medium text-zinc-300 mb-2">
+                Search
+              </label>
+              <Input
+                type="text"
+                placeholder="Search by name, type, category, location, owner..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500"
+              />
+            </div>
+
+            {/* Service Type Filter */}
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">
+                Service Type
+              </label>
+              <select
+                value={serviceTypeFilter}
+                onChange={(e) => setServiceTypeFilter(e.target.value)}
+                className="w-full h-9 rounded-md border border-zinc-700 bg-zinc-800/50 text-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">All Types</option>
+                {uniqueServiceTypes.map((type) => (
+                  <option key={type} value={type} className="bg-zinc-800">
+                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Status Filter */}
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">
+                Status
+              </label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full h-9 rounded-md border border-zinc-700 bg-zinc-800/50 text-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">All Status</option>
+                <option value="approved" className="bg-zinc-800">Approved</option>
+                <option value="pending" className="bg-zinc-800">Pending</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Location Filter */}
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-zinc-300 mb-2">
+              Location (City/State)
+            </label>
+            <Input
+              type="text"
+              placeholder="Filter by city or state..."
+              value={locationFilter}
+              onChange={(e) => setLocationFilter(e.target.value)}
+              className="bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 max-w-md"
+            />
+          </div>
+
+          {/* Active Filters Summary */}
+          {(searchQuery || serviceTypeFilter !== "all" || statusFilter !== "all" || locationFilter) && (
+            <div className="mt-4 flex items-center gap-2 flex-wrap">
+              <span className="text-sm text-zinc-400">Active filters:</span>
+              {searchQuery && (
+                <Badge variant="secondary" className="bg-blue-600/30 text-blue-300">
+                  Search: {searchQuery}
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="ml-2 hover:text-blue-200 cursor-pointer font-bold text-base leading-none"
+                    aria-label="Clear search filter"
+                  >
+                    ×
+                  </button>
+                </Badge>
+              )}
+              {serviceTypeFilter !== "all" && (
+                <Badge variant="secondary" className="bg-blue-600/30 text-blue-300">
+                  Type: {serviceTypeFilter}
+                  <button
+                    type="button"
+                    onClick={() => setServiceTypeFilter("all")}
+                    className="ml-2 hover:text-blue-200 cursor-pointer font-bold text-base leading-none"
+                    aria-label="Clear service type filter"
+                  >
+                    ×
+                  </button>
+                </Badge>
+              )}
+              {statusFilter !== "all" && (
+                <Badge variant="secondary" className="bg-blue-600/30 text-blue-300">
+                  Status: {statusFilter}
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter("all")}
+                    className="ml-2 hover:text-blue-200 cursor-pointer font-bold text-base leading-none"
+                    aria-label="Clear status filter"
+                  >
+                    ×
+                  </button>
+                </Badge>
+              )}
+              {locationFilter && (
+                <Badge variant="secondary" className="bg-blue-600/30 text-blue-300">
+                  Location: {locationFilter}
+                  <button
+                    type="button"
+                    onClick={() => setLocationFilter("")}
+                    className="ml-2 hover:text-blue-200 cursor-pointer font-bold text-base leading-none"
+                    aria-label="Clear location filter"
+                  >
+                    ×
+                  </button>
+                </Badge>
+              )}
+              <button
+                onClick={() => {
+                  setSearchQuery("");
+                  setServiceTypeFilter("all");
+                  setStatusFilter("all");
+                  setLocationFilter("");
+                }}
+                className="text-sm text-blue-400 hover:text-blue-300 underline"
+              >
+                Clear all
+              </button>
+            </div>
+          )}
+        </div>
+
         {listings.length === 0 ? (
           <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-8 text-center">
             <p className="text-zinc-400 text-lg">No service listings found.</p>
@@ -225,6 +422,12 @@ export default function AdminDashboard() {
           <>
             <div className="mb-4 text-zinc-300">
               Total Listings: <span className="font-semibold text-white">{listings.length}</span>
+              {filteredListings.length !== listings.length && (
+                <>
+                  {" "}
+                  | Filtered: <span className="font-semibold text-white">{filteredListings.length}</span>
+                </>
+              )}
             </div>
 
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg overflow-hidden">
@@ -248,7 +451,14 @@ export default function AdminDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {listings.map((listing) => (
+                    {filteredListings.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={13} className="text-center py-8 text-zinc-400">
+                          No listings match your filters. Try adjusting your search criteria.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredListings.map((listing) => (
                       <React.Fragment key={listing.id}>
                         <TableRow className="border-zinc-800 hover:bg-zinc-800/50">
                           <TableCell>
@@ -463,7 +673,8 @@ export default function AdminDashboard() {
                           </TableRow>
                         )}
                       </React.Fragment>
-                    ))}
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </div>
