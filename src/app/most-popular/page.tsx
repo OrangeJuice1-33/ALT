@@ -114,6 +114,7 @@ export default function MostPopularPage() {
       // Fetch listings regardless of auth state (public pages should work for everyone)
       await fetchListings();
     });
+    //
 
     return () => {
       if (unsubscribe) {
