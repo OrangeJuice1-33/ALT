@@ -249,11 +249,11 @@ export default function FilterBar({
   };
 
   return (
-    <div className="w-full rounded-md bg-[#07162f]/60 border border-zinc-800 p-4 mb-6">
+    <div className="w-full rounded-2xl bg-[#07162f]/70 border border-zinc-800/80 p-4 md:p-5 mb-6 shadow-[0_18px_45px_rgba(0,0,0,0.55)]">
       <div className="flex flex-col gap-4">
         {/* top row: Category / State / City / Dates */}
         <div className="flex gap-3 items-center flex-wrap">
-          <select value={category} onChange={(e)=>{ setCategory(e.target.value); setSubtype(""); }} className="bg-zinc-900 p-2 rounded-md border border-zinc-700">
+          <select value={category} onChange={(e)=>{ setCategory(e.target.value); setSubtype(""); }} className="bg-zinc-900 px-3 py-2 rounded-lg border border-zinc-700">
             {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
 
@@ -263,7 +263,7 @@ export default function FilterBar({
               setState(e.target.value);
               setCity(""); // Reset city when state changes
             }} 
-            className="bg-zinc-900 p-2 rounded-md border border-zinc-700"
+            className="bg-zinc-900 px-3 py-2 rounded-lg border border-zinc-700"
           >
             <option value="">Select State</option>
             {STATES.map(s => <option key={s} value={s}>{s}</option>)}
@@ -273,7 +273,7 @@ export default function FilterBar({
             value={city} 
             onChange={(e)=>setCity(e.target.value)} 
             disabled={!state || availableCities.length === 0}
-            className="bg-zinc-900 p-2 rounded-md border border-zinc-700 flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-zinc-900 px-3 py-2 rounded-lg border border-zinc-700 flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <option value="">{state ? "Select City" : "Select State first"}</option>
             {availableCities.map(c => <option key={c} value={c}>{c}</option>)}
@@ -281,9 +281,9 @@ export default function FilterBar({
 
           <div className="flex items-center gap-2">
             <label className="text-zinc-400 text-sm">From</label>
-            <input type="date" value={startDateStr} onChange={(e)=>setStartDateStr(e.target.value)} className="bg-zinc-900 p-2 rounded-md border border-zinc-700"/>
+            <input type="date" value={startDateStr} onChange={(e)=>setStartDateStr(e.target.value)} className="bg-zinc-900 px-3 py-2 rounded-lg border border-zinc-700"/>
             <label className="text-zinc-400 text-sm">To</label>
-            <input type="date" value={endDateStr} onChange={(e)=>setEndDateStr(e.target.value)} className="bg-zinc-900 p-2 rounded-md border border-zinc-700"/>
+            <input type="date" value={endDateStr} onChange={(e)=>setEndDateStr(e.target.value)} className="bg-zinc-900 px-3 py-2 rounded-lg border border-zinc-700"/>
           </div>
         </div>
 
@@ -294,9 +294,9 @@ export default function FilterBar({
               {category === "Caterer" ? "Cuisine type" : category === "Decorator" ? "Decorator category" : category === "Photographer" ? "Photography style" : category === "DJ" ? "Music genre" : "Subtype"}
             </div>
             <div className="flex flex-wrap gap-2">
-              <button onClick={()=>setSubtype("")} className={`px-3 py-1 rounded-md text-sm ${subtype===""?"bg-blue-600":"bg-zinc-800"}`}>All</button>
+              <button onClick={()=>setSubtype("")} className={`px-3 py-1 rounded-full text-sm ${subtype===""?"bg-blue-600":"bg-zinc-800"}`}>All</button>
               {currentSubtypes.map(s => (
-                <button key={s} onClick={()=>setSubtype(s)} className={`px-3 py-1 rounded-md text-sm ${subtype===s?"bg-emerald-600":"bg-zinc-800"}`}>{s}</button>
+                <button key={s} onClick={()=>setSubtype(s)} className={`px-3 py-1 rounded-full text-sm ${subtype===s?"bg-emerald-600":"bg-zinc-800"}`}>{s}</button>
               ))}
             </div>
           </div>
@@ -307,7 +307,7 @@ export default function FilterBar({
               value={region} 
               onChange={(e)=>setRegion(e.target.value)} 
               disabled={!city || availableRegions.length === 0}
-              className="bg-zinc-900 p-2 rounded-md border border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-zinc-900 px-3 py-2 rounded-lg border border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <option value="">{city ? (availableRegions.length > 0 ? "Select Region" : "No regions available") : "Select City first"}</option>
               {availableRegions.map(r => <option key={r} value={r}>{r}</option>)}
@@ -317,19 +317,19 @@ export default function FilterBar({
 
         {/* third row: sliders + stars */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-zinc-900 p-3 rounded-md border border-zinc-700">
+          <div className="bg-zinc-900/95 p-3 rounded-xl border border-zinc-700">
             <div className="text-sm text-zinc-300 mb-2">{getBookingsLabel()}</div>
             <input type="range" min={0} max={1000} value={bookingsMin} onChange={(e)=>setBookingsMin(Number(e.target.value))} />
             <div className="text-sm text-zinc-400 mt-2">{bookingsMin}+</div>
           </div>
 
-          <div className="bg-zinc-900 p-3 rounded-md border border-zinc-700">
+          <div className="bg-zinc-900/95 p-3 rounded-xl border border-zinc-700">
             <div className="text-sm text-zinc-300 mb-2">{getPriceLabel()}</div>
             <input type="range" min={0} max={200000} step={500} value={priceMax} onChange={(e)=>setPriceMax(Number(e.target.value))} />
             <div className="text-sm text-zinc-400 mt-2">Up to ₹{priceMax}</div>
           </div>
 
-          <div className="bg-zinc-900 p-3 rounded-md border border-zinc-700">
+          <div className="bg-zinc-900/95 p-3 rounded-xl border border-zinc-700">
             <div className="text-sm text-zinc-300 mb-2">Minimum stars</div>
             <div className="flex items-center gap-2">
               {[0,1,2,3,4,5].map(s => (
@@ -350,14 +350,14 @@ export default function FilterBar({
             </div>
 
             <div className="mb-2">
-              <input value={filterQuery} onChange={(e)=>setFilterQuery(e.target.value)} placeholder={`Search ${category === "Venue" ? "amenities" : "filters"}`} className="bg-zinc-900 p-2 rounded-md border border-zinc-700 w-full"/>
+              <input value={filterQuery} onChange={(e)=>setFilterQuery(e.target.value)} placeholder={`Search ${category === "Venue" ? "amenities" : "filters"}`} className="bg-zinc-900 px-3 py-2 rounded-full border border-zinc-700 w-full"/>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
               {filterCandidates.map(f => {
                 const active = amenities.includes(f);
                 return (
-                  <button key={f} onClick={()=>toggleFilter(f)} className={`text-sm p-2 rounded-md text-left ${active ? "bg-emerald-600":"bg-zinc-800"}`}>
+                  <button key={f} onClick={()=>toggleFilter(f)} className={`text-sm px-3 py-2 rounded-full text-left ${active ? "bg-emerald-600":"bg-zinc-800"}`}>
                     {f}{active ? " ✓": ""}
                   </button>
                 );
@@ -382,9 +382,9 @@ export default function FilterBar({
             setPriceMax(200000);
             setAmenities([]);
             if (onReset) onReset();
-          }} className="px-4 py-2 rounded-md bg-zinc-800 border border-zinc-700">Reset</button>
+          }} className="px-4 py-2 rounded-full bg-zinc-800 border border-zinc-700">Reset</button>
 
-          <button onClick={()=>onApply && onApply()} className="px-4 py-2 rounded-md bg-blue-600">Apply filters</button>
+          <button onClick={()=>onApply && onApply()} className="px-4 py-2 rounded-full bg-blue-600">Apply filters</button>
         </div>
       </div>
     </div>

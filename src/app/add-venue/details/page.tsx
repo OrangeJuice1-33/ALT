@@ -95,6 +95,18 @@ function Step2VenueDetailsContent() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const serviceLabel = useMemo(() => {
+    if (!formData.service) return "Not set yet";
+    const map: Record<string, string> = {
+      venue: "Venue",
+      decorator: "Decorator",
+      caterer: "Caterer",
+      dj: "DJ",
+      photographer: "Photographer",
+    };
+    return map[formData.service] || formData.service;
+  }, [formData.service]);
+
   function validateForm(): boolean {
     const newErrors: Record<string, string> = {};
 
@@ -200,13 +212,15 @@ function Step2VenueDetailsContent() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(circle_at_top_left,#07102a_0%,#03031a_60%)] p-6 text-white">
-      <div className="w-full max-w-2xl bg-[#07102a]/80 border border-zinc-800 rounded-xl p-8 shadow-xl">
+      <div className="w-full max-w-5xl bg-[#07102a]/80 border border-zinc-800 rounded-xl p-6 md:p-8 shadow-xl">
         <h2 className="text-3xl font-bold mb-2 text-center">Venue Details</h2>
-        <p className="text-center text-zinc-400 mb-8">
-          Fill in all the required details below
+        <p className="text-center text-zinc-400 mb-6 md:mb-8">
+          Fill in the details guests will see and filter by
         </p>
 
-        <form onSubmit={handleNext} className="space-y-5">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+          {/* Main form */}
+          <form onSubmit={handleNext} className="space-y-5">
           {/* Service */}
           <div>
             <label className="block text-sm mb-2 text-zinc-300">
@@ -490,6 +504,73 @@ function Step2VenueDetailsContent() {
             </button>
           </div>
         </form>
+
+        {/* Filters sidebar */}
+        <aside className="rounded-xl border border-zinc-800 bg-[#050922]/80 p-4 md:p-5 text-sm space-y-4">
+          <div>
+            <h3 className="text-lg font-semibold mb-1">Filters preview</h3>
+            <p className="text-xs text-zinc-400">
+              This is how guests will narrow down to venues like yours on the search page.
+            </p>
+          </div>
+
+          <dl className="space-y-3">
+            <div>
+              <dt className="text-[11px] uppercase tracking-wide text-zinc-500">
+                Service type
+              </dt>
+              <dd className="text-zinc-100">
+                {serviceLabel}
+              </dd>
+            </div>
+
+            <div>
+              <dt className="text-[11px] uppercase tracking-wide text-zinc-500">
+                Category / style
+              </dt>
+              <dd className="text-zinc-100">
+                {formData.category || "Not set yet"}
+              </dd>
+            </div>
+
+            <div>
+              <dt className="text-[11px] uppercase tracking-wide text-zinc-500">
+                State & city
+              </dt>
+              <dd className="text-zinc-100">
+                {formData.state || formData.city
+                  ? `${formData.city || "City not set"}, ${formData.state || "State not set"}`
+                  : "Not set yet"}
+              </dd>
+            </div>
+
+            <div>
+              <dt className="text-[11px] uppercase tracking-wide text-zinc-500">
+                Region (micro‑location)
+              </dt>
+              <dd className="text-zinc-100">
+                {formData.region || "Optional – helps guests find you faster"}
+              </dd>
+            </div>
+
+            <div>
+              <dt className="text-[11px] uppercase tracking-wide text-zinc-500">
+                Google Maps pin
+              </dt>
+              <dd className="text-zinc-100">
+                {formData.googlePin
+                  ? "Added – we’ll show a map preview on your listing"
+                  : "Add a maps link so guests can see the exact location"}
+              </dd>
+            </div>
+          </dl>
+
+          <p className="text-[11px] text-zinc-500 leading-relaxed">
+            You&apos;ll set pricing, amenities and photos in the next steps.
+            Those become additional filters like budget, capacity and facilities on the search page.
+          </p>
+        </aside>
+        </div>
       </div>
     </div>
   );
