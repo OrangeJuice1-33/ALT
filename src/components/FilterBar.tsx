@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import DatePicker from "./DatePicker";
 
 export const CATEGORIES = ["Venue","Decorator","Caterer","DJ","Photographer"];
 
@@ -209,6 +210,17 @@ export default function FilterBar({
     setRegion("");
   }, [city, setRegion]);
 
+  // Reset end date if it's before start date
+  React.useEffect(() => {
+    if (startDateStr && endDateStr) {
+      const startDate = new Date(startDateStr);
+      const endDate = new Date(endDateStr);
+      if (endDate < startDate) {
+        setEndDateStr("");
+      }
+    }
+  }, [startDateStr, endDateStr, setEndDateStr]);
+
   // Get regions for selected city
   const availableRegions = useMemo(() => {
     if (!city) return [];
@@ -280,10 +292,20 @@ export default function FilterBar({
           </select>
 
           <div className="flex items-center gap-2">
-            <label className="text-zinc-400 text-sm">From</label>
-            <input type="date" value={startDateStr} onChange={(e)=>setStartDateStr(e.target.value)} className="bg-zinc-900 px-3 py-2 rounded-lg border border-zinc-700"/>
-            <label className="text-zinc-400 text-sm">To</label>
-            <input type="date" value={endDateStr} onChange={(e)=>setEndDateStr(e.target.value)} className="bg-zinc-900 px-3 py-2 rounded-lg border border-zinc-700"/>
+            <label className="text-zinc-400 text-sm whitespace-nowrap">From</label>
+            <DatePicker 
+              value={startDateStr} 
+              onChange={setStartDateStr}
+              placeholder="dd/mm/yyyy"
+              minDate={new Date()}
+            />
+            <label className="text-zinc-400 text-sm whitespace-nowrap">To</label>
+            <DatePicker 
+              value={endDateStr} 
+              onChange={setEndDateStr}
+              placeholder="dd/mm/yyyy"
+              minDate={startDateStr ? new Date(startDateStr) : new Date()}
+            />
           </div>
         </div>
 

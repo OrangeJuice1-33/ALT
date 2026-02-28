@@ -366,10 +366,10 @@ export default function SearchPage() {
 
                 <div className="p-4 pt-0">
                   <Link
-                    href={`/search/${l.id}/review`}
+                    href={`/search/${l.id}`}
                     className="block w-full text-center bg-purple-600 hover:bg-purple-700 rounded-md py-2 mt-2 font-semibold transition"
                   >
-                    ⭐ Leave a Review
+                    Book now
                   </Link>
                 </div>
               </div>

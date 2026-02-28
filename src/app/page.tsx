@@ -258,56 +258,36 @@ export default function HomePage() {
             >
               <h3 className="text-3xl font-bold mb-6 text-sky-400">Why Choose ALT?</h3>
               <div className="space-y-4">
-                <div className="flex gap-4">
-                  <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-gradient-to-br from-sky-500 to-emerald-400 flex items-center justify-center text-2xl">
-                    🔍
-                  </div>
-                  <div>
-                    <h4 className="text-xl font-semibold mb-2">Comprehensive Search</h4>
-                    <p className="text-zinc-300">
-                      Find exactly what you're looking for with our advanced filtering system.
-                      Filter by location, price range, ratings, availability dates, and more.
-                    </p>
-                  </div>
+                <div>
+                  <h4 className="text-xl font-semibold mb-2">Comprehensive Search</h4>
+                  <p className="text-zinc-300">
+                    Find exactly what you're looking for with our advanced filtering system.
+                    Filter by location, price range, ratings, availability dates, and more.
+                  </p>
                 </div>
 
-                <div className="flex gap-4">
-                  <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-gradient-to-br from-emerald-500 to-amber-400 flex items-center justify-center text-2xl">
-                    ⭐
-                  </div>
-                  <div>
-                    <h4 className="text-xl font-semibold mb-2">Verified Reviews</h4>
-                    <p className="text-zinc-300">
-                      Make informed decisions with authentic reviews and ratings from real customers
-                      who have used these services.
-                    </p>
-                  </div>
+                <div>
+                  <h4 className="text-xl font-semibold mb-2">Verified Reviews</h4>
+                  <p className="text-zinc-300">
+                    Make informed decisions with authentic reviews and ratings from real customers
+                    who have used these services.
+                  </p>
                 </div>
 
-                <div className="flex gap-4">
-                  <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-gradient-to-br from-amber-500 to-sky-400 flex items-center justify-center text-2xl">
-                    🔒
-                  </div>
-                  <div>
-                    <h4 className="text-xl font-semibold mb-2">Secure & Reliable</h4>
-                    <p className="text-zinc-300">
-                      Your data and payments are protected with industry-standard security measures.
-                      Book with confidence.
-                    </p>
-                  </div>
+                <div>
+                  <h4 className="text-xl font-semibold mb-2">Secure & Reliable</h4>
+                  <p className="text-zinc-300">
+                    Your data and payments are protected with industry-standard security measures.
+                    Book with confidence.
+                  </p>
                 </div>
 
-                <div className="flex gap-4">
-                  <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-gradient-to-br from-sky-500 via-emerald-400 to-amber-300 flex items-center justify-center text-2xl">
-                    🚀
-                  </div>
-                  <div>
-                    <h4 className="text-xl font-semibold mb-2">Easy Booking Process</h4>
-                    <p className="text-zinc-300">
-                      From discovery to booking, our streamlined process makes planning your event
-                      simple and stress-free.
-                    </p>
-                  </div>
+                <div>
+                  <h4 className="text-xl font-semibold mb-2">Easy Booking Process</h4>
+                  <p className="text-zinc-300">
+                    From discovery to booking, our streamlined process makes planning your event
+                    simple and stress-free.
+                  </p>
                 </div>
               </div>
             </motion.section>

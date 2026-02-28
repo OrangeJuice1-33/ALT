@@ -66,7 +66,7 @@ export default function AddVenuePage() {
 
   return (
     <div className="min-h-screen px-6 py-24 bg-[radial-gradient(circle_at_top_left,#07102a_0%,#03031a_60%)] text-white flex flex-col items-center">
-      <h1 className="text-3xl font-bold mb-10">Add Your Venue / Service</h1>
+      <h1 className="text-3xl font-bold mb-10">List Your Service</h1>
 
       <div className="w-full max-w-xl space-y-4">
         <label className="block text-lg">Type of Service</label>

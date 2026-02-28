@@ -2,11 +2,13 @@
 
 import { useRouter, useParams } from "next/navigation";
 import { useState, useMemo, useEffect } from "react";
-import { db } from "@/lib/firebase/config";
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { db, auth } from "@/lib/firebase/config";
+import { doc, getDoc, collection, query, where, getDocs, addDoc } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 import {
   differenceInCalendarDays,
-  parseISO
+  parseISO,
+  format
 } from "date-fns";
 
 interface Listing {
@@ -43,6 +45,9 @@ export default function ListingDetail() {
   const [startDate, setStartDate] = useState<string | null>(null);
   const [endDate, setEndDate] = useState<string | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [savingBooking, setSavingBooking] = useState(false);
+  const [bookingError, setBookingError] = useState<string | null>(null);
 
   // ✅ Safe extraction
   const id = typeof params?.id === "string" ? params.id : "";
@@ -55,6 +60,114 @@ export default function ListingDetail() {
       return 0;
     }
   }, [startDate, endDate]);
+
+  const totalPrice = useMemo(() => {
+    if (!listing || nights <= 0) return 0;
+    let basePrice = nights * listing.price_per_unit;
+    
+    // Apply discounts if applicable
+    if (listing.discounts && listing.discounts.length > 0) {
+      const applicableDiscount = listing.discounts
+        .filter(d => nights >= d.min_units)
+        .sort((a, b) => b.min_units - a.min_units)[0];
+      
+      if (applicableDiscount) {
+        basePrice = basePrice * (1 - applicableDiscount.percent / 100);
+      }
+    }
+    
+    return Math.round(basePrice);
+  }, [listing, nights]);
+
+  const subtotal = useMemo(() => {
+    if (!listing || nights <= 0) return 0;
+    return nights * listing.price_per_unit;
+  }, [listing, nights]);
+
+  const discountAmount = useMemo(() => {
+    if (!listing || nights <= 0) return 0;
+    return subtotal - totalPrice;
+  }, [subtotal, totalPrice]);
+
+  async function saveBooking() {
+    if (!listing || !startDate || !endDate) {
+      setBookingError("Please select both start and end dates");
+      return;
+    }
+
+    setSavingBooking(true);
+    setBookingError(null);
+
+    try {
+      return new Promise<void>((resolve, reject) => {
+        // Check if user is already authenticated first
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          // User is already authenticated, proceed directly
+          handleSaveBooking(currentUser.uid, resolve, reject);
+          return;
+        }
+
+        // If not authenticated, wait for auth state change
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+          unsubscribe(); // Unsubscribe after first call
+          if (!user) {
+            const errorMsg = "Please sign in to complete your booking";
+            setBookingError(errorMsg);
+            setSavingBooking(false);
+            reject(new Error(errorMsg));
+            return;
+          }
+
+          handleSaveBooking(user.uid, resolve, reject);
+        });
+      });
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "An unexpected error occurred";
+      setBookingError(errorMessage);
+      setSavingBooking(false);
+    }
+  }
+
+  async function handleSaveBooking(
+    userId: string,
+    resolve: () => void,
+    reject: (reason?: any) => void
+  ) {
+    try {
+      if (!listing || !startDate || !endDate) {
+        throw new Error("Missing booking information");
+      }
+
+      await addDoc(collection(db, "bookings"), {
+        listing_id: listing.id,
+        user_id: userId,
+        start_date: startDate,
+        end_date: endDate,
+        unit: listing.unit,
+        price_per_unit: listing.price_per_unit,
+        total_units: nights,
+        subtotal: subtotal,
+        discount_amount: discountAmount,
+        total_amount: totalPrice,
+        status: "pending",
+        service_type: listing.service_type || undefined,
+        created_at: new Date().toISOString(),
+      });
+
+      setSavingBooking(false);
+      alert("Booking saved successfully! Payment integration coming soon.");
+      setShowBookingModal(false);
+      resolve();
+    } catch (error: any) {
+      console.error("Error saving booking:", error);
+      const errorMessage = error.message || "Failed to save booking. Please try again.";
+      setBookingError(errorMessage);
+      setSavingBooking(false);
+      reject(error);
+    }
+  }
 
   useEffect(() => {
     async function fetchListing() {
@@ -314,47 +427,83 @@ export default function ListingDetail() {
               : "service"}
           </h2>
 
-          <label className="block mb-4">
-            <span className="text-zinc-300 text-sm">Start Date</span>
-            <input
-              type="date"
-              className="mt-2 w-full p-3 bg-zinc-900 rounded-md border border-zinc-700"
-              value={startDate ?? ""}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
-          </label>
+          <div className="space-y-4 mb-6">
+            <label className="block">
+              <span className="text-zinc-300 text-sm font-medium mb-2 block">Start Date</span>
+              <div className="relative group">
+                <input
+                  type="date"
+                  className="w-full p-4 bg-zinc-900/90 rounded-xl border-2 border-zinc-700 hover:border-blue-500/50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 focus:outline-none transition-all text-white cursor-pointer shadow-sm hover:shadow-md"
+                  value={startDate ?? ""}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                />
+                <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                  <svg className="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              </div>
+              {startDate && (
+                <p className="mt-2 text-sm text-blue-400 font-medium">
+                  📅 {format(parseISO(startDate), "dd-MM-yyyy")}
+                </p>
+              )}
+            </label>
 
-          <label className="block mb-4">
-            <span className="text-zinc-300 text-sm">End Date</span>
-            <input
-              type="date"
-              className="mt-2 w-full p-3 bg-zinc-900 rounded-md border border-zinc-700"
-              value={endDate ?? ""}
-              onChange={(e) => setEndDate(e.target.value)}
-            />
-          </label>
+            <label className="block">
+              <span className="text-zinc-300 text-sm font-medium mb-2 block">End Date</span>
+              <div className="relative group">
+                <input
+                  type="date"
+                  className="w-full p-4 bg-zinc-900/90 rounded-xl border-2 border-zinc-700 hover:border-blue-500/50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 focus:outline-none transition-all text-white cursor-pointer shadow-sm hover:shadow-md"
+                  value={endDate ?? ""}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  min={startDate || new Date().toISOString().split('T')[0]}
+                />
+                <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                  <svg className="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              </div>
+              {endDate && (
+                <p className="mt-2 text-sm text-blue-400 font-medium">
+                  📅 {format(parseISO(endDate), "dd-MM-yyyy")}
+                </p>
+              )}
+            </label>
+          </div>
 
-          <div className="mt-6 p-4 bg-zinc-900 border border-zinc-700 rounded-md">
-            <p className="text-zinc-300 mb-2">
-              Price per {listing.unit}: ₹
-              {listing.price_per_unit.toLocaleString("en-IN")}
-            </p>
-            {listing.unit === "night" && (
-              <p className="text-zinc-300 mb-2">
-                Nights selected: {nights > 0 ? nights : "-"}
+          <div className="mt-6 p-5 bg-gradient-to-br from-zinc-900/90 to-zinc-800/90 border border-zinc-700 rounded-lg shadow-lg">
+            <div className="space-y-2">
+              <p className="text-zinc-300 text-sm">
+                Price per {listing.unit}: <span className="text-white font-semibold">₹{listing.price_per_unit.toLocaleString("en-IN")}</span>
               </p>
-            )}
-            {nights > 0 && listing.unit === "night" && (
-              <p className="text-xl font-semibold text-white">
-                Total: ₹
-                {(nights * listing.price_per_unit).toLocaleString("en-IN")}
-              </p>
-            )}
+              {listing.unit === "night" && (
+                <p className="text-zinc-300 text-sm">
+                  Nights selected: <span className="text-white font-semibold">{nights > 0 ? nights : "-"}</span>
+                </p>
+              )}
+              {nights > 0 && listing.unit === "night" && (
+                <div className="pt-3 border-t border-zinc-700">
+                  <p className="text-xl font-bold text-green-400">
+                    Total: ₹{(nights * listing.price_per_unit).toLocaleString("en-IN")}
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
           <button
-            onClick={() => alert("Payment flow coming next…")}
-            className="w-full mt-6 bg-green-600 hover:bg-green-700 p-3 rounded-md font-bold"
+            onClick={() => {
+              if (!startDate || !endDate) {
+                alert("Please select both start and end dates");
+                return;
+              }
+              setShowBookingModal(true);
+            }}
+            className="w-full mt-6 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 p-3.5 rounded-lg font-bold text-white shadow-lg hover:shadow-xl transition-all transform hover:scale-[1.02]"
           >
             Continue →
           </button>
@@ -362,9 +511,10 @@ export default function ListingDetail() {
           {/* 📌 REVIEW BUTTON */}
           <button
             onClick={() => router.push(`/search/${id}/review`)}
-            className="w-full mt-3 bg-purple-600 hover:bg-purple-700 p-3 rounded-md font-bold"
+            className="w-full mt-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 p-3.5 rounded-lg font-bold text-white shadow-lg hover:shadow-xl transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2"
           >
-            ⭐ Leave a Review
+            <span className="text-lg">⭐</span>
+            <span>Leave a Review</span>
           </button>
         </div>
 
@@ -403,6 +553,138 @@ export default function ListingDetail() {
           </p>
         </aside>
       </div>
+
+      {/* Booking Modal */}
+      {showBookingModal && (
+        <div
+          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+          onClick={() => setShowBookingModal(false)}
+        >
+          <div
+            className="bg-[#07102a] border border-zinc-700 rounded-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold">Confirm Booking</h2>
+              <button
+                onClick={() => setShowBookingModal(false)}
+                className="text-zinc-400 hover:text-white text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <h3 className="text-lg font-semibold mb-2">{listing.name}</h3>
+                <p className="text-sm text-zinc-400 capitalize">
+                  {listing.service_type} • {listing.category}
+                </p>
+              </div>
+
+              <div className="border-t border-zinc-700 pt-4">
+                <div className="flex justify-between mb-2">
+                  <span className="text-zinc-300">Check-in</span>
+                  <span className="text-white font-medium">
+                    {startDate ? new Date(startDate).toLocaleDateString("en-IN", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    }) : "-"}
+                  </span>
+                </div>
+                <div className="flex justify-between mb-2">
+                  <span className="text-zinc-300">Check-out</span>
+                  <span className="text-white font-medium">
+                    {endDate ? new Date(endDate).toLocaleDateString("en-IN", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    }) : "-"}
+                  </span>
+                </div>
+                {listing.unit === "night" && (
+                  <div className="flex justify-between mb-2">
+                    <span className="text-zinc-300">Nights</span>
+                    <span className="text-white font-medium">{nights}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-zinc-700 pt-4">
+                <div className="flex justify-between mb-2">
+                  <span className="text-zinc-300">
+                    ₹{listing.price_per_unit.toLocaleString("en-IN")} × {nights} {listing.unit}
+                    {nights !== 1 ? "s" : ""}
+                  </span>
+                  <span className="text-white">
+                    ₹{(nights * listing.price_per_unit).toLocaleString("en-IN")}
+                  </span>
+                </div>
+                {listing.discounts && listing.discounts.length > 0 && nights >= (listing.discounts[0]?.min_units || 0) && (
+                  <div className="flex justify-between mb-2 text-green-400">
+                    <span>Discount applied</span>
+                    <span>
+                      -₹{((nights * listing.price_per_unit) - totalPrice).toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between pt-2 border-t border-zinc-700">
+                  <span className="text-lg font-semibold">Total</span>
+                  <span className="text-xl font-bold text-green-400">
+                    ₹{totalPrice.toLocaleString("en-IN")}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 mb-6">
+              <div className="flex items-start gap-2">
+                <span className="text-amber-400 text-xl">⚠️</span>
+                <div>
+                  <p className="text-amber-300 font-semibold mb-1">Payment Mechanism Coming Soon</p>
+                  <p className="text-amber-200/80 text-sm">
+                    We're working on integrating secure payment options. Your booking will be saved and payment can be completed later.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {bookingError && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-6">
+                <p className="text-red-300 text-sm">{bookingError}</p>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowBookingModal(false);
+                  setBookingError(null);
+                }}
+                disabled={savingBooking}
+                className="flex-1 px-4 py-3 bg-zinc-700 hover:bg-zinc-600 rounded-md font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Close
+              </button>
+              <button
+                onClick={saveBooking}
+                disabled={savingBooking}
+                className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 rounded-md font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {savingBooking ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  "Confirm Booking"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

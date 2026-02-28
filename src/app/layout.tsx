@@ -95,7 +95,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {/* Center nav links (desktop) */}
               <div className="hidden md:flex items-center gap-6 text-sm text-zinc-300">
                 <Link href="/search" className="hover:text-white transition-colors">Book your venue/service</Link>
-                <Link href="/add-venue" className="hover:text-white transition-colors">Add your venue</Link>
+                <Link href="/add-venue" className="hover:text-white transition-colors">List your service</Link>
                 <Link href="/most-popular" className="hover:text-white transition-colors">Most popular</Link>
                 <Link href="/top-rated" className="hover:text-white transition-colors">Top rated</Link>
                 <Link href="/#about" className="hover:text-white transition-colors">About</Link>
@@ -147,7 +147,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                             className="block px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer relative z-[51]"
                             onClick={() => setShowDropdown(false)}
                           >
-                            Add your venue/service
+                            List your service
                           </Link>
                           <Link
                             href="/dashboard/settings?edit=1"
