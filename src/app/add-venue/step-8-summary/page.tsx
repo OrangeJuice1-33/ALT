@@ -121,151 +121,23 @@ function SummaryPageContent() {
       }));
 
       return new Promise<string>((resolve, reject) => {
-        onAuthStateChanged(auth, async (user) => {
+        // Check if user is already authenticated first
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          // User is already authenticated, proceed directly
+          handleSaveListing(currentUser.uid, currentState, resolve, reject);
+          return;
+        }
+
+        // If not authenticated, wait for auth state change
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+          unsubscribe(); // Unsubscribe after first call
           if (!user) {
             reject(new Error("User not authenticated. Please log in first."));
             return;
           }
 
-          const userId = user.uid;
-
-          try {
-            // Get data from query params (details page data)
-            const service = searchParams?.get("service") || "";
-            const category = searchParams?.get("category") || "";
-            const name = searchParams?.get("name") || "";
-            const address1 = searchParams?.get("address1") || "";
-            const address2 = searchParams?.get("address2") || "";
-            const country = searchParams?.get("country") || "";
-            const addressState = searchParams?.get("state") || "";
-            const city = searchParams?.get("city") || "";
-            const pincode = searchParams?.get("pincode") || "";
-            const googlePin = searchParams?.get("googlePin") || "";
-
-            // Get pricing data from query params (from step-6-booking) or use React state defaults
-            const unitFromParams = searchParams?.get("unit") || currentState.unit || "night";
-            const pricePerUnitFromParams = Number(searchParams?.get("pricePerUnit")) || currentState.pricePerUnit || 0;
-            const discountsFromParams = searchParams?.get("discounts") 
-              ? JSON.parse(searchParams.get("discounts")!) 
-              : (currentState.discounts || []);
-            
-            // Get availability dates from query params
-            const startDateFromParams = searchParams?.get("startDate") || currentState.startDate || "";
-            const endDateFromParams = searchParams?.get("endDate") || currentState.endDate || "";
-            const excludedDatesFromParams = searchParams?.get("excludedDates")?.split(",").filter(Boolean) || currentState.excludedDates || [];
-
-            // Get data from localStorage
-            const description = localStorage.getItem("venue_description") || "";
-            const featuresStr = localStorage.getItem("venue_features") || "{}";
-            const features = JSON.parse(featuresStr);
-
-            // Fetch gallery images for this user filtered by service type AND category
-            const galleryRef = collection(db, "venue_gallery");
-            let galleryQuery;
-            let images: string[] = [];
-            
-            if (category) {
-              // First try to get images filtered by both service_type and category
-              galleryQuery = query(
-                galleryRef, 
-                where("user_id", "==", userId),
-                where("service_type", "==", service),
-                where("category", "==", category)
-              );
-              const gallerySnap = await getDocs(galleryQuery);
-              gallerySnap.docs.forEach((doc) => {
-                const data = doc.data();
-                if (data.url) {
-                  images.push(data.url);
-                }
-              });
-              
-              // If no images found with category filter (backward compatibility for old images),
-              // fall back to service_type only
-              if (images.length === 0) {
-                galleryQuery = query(
-                  galleryRef, 
-                  where("user_id", "==", userId),
-                  where("service_type", "==", service)
-                );
-                const fallbackSnap = await getDocs(galleryQuery);
-                fallbackSnap.docs.forEach((doc) => {
-                  const data = doc.data();
-                  if (data.url) {
-                    images.push(data.url);
-                  }
-                });
-              }
-            } else {
-              // If no category, just filter by service_type
-              galleryQuery = query(
-                galleryRef, 
-                where("user_id", "==", userId),
-                where("service_type", "==", service)
-              );
-              const gallerySnap = await getDocs(galleryQuery);
-              gallerySnap.docs.forEach((doc) => {
-                const data = doc.data();
-                if (data.url) {
-                  images.push(data.url);
-                }
-              });
-            }
-
-            if (images.length === 0) {
-              throw new Error("Please upload at least one image before submitting.");
-            }
-
-            // Save the complete listing
-            const listingRef = await addDoc(collection(db, "listings"), {
-              service_type: service, // venue, decorator, caterer, dj, photographer
-              category,
-              name,
-              description,
-              address: {
-                address1,
-                address2,
-                country,
-                state: addressState,
-                city,
-                pincode,
-                googlePin,
-              },
-              features,
-              images,
-              unit: unitFromParams,
-              price_per_unit: pricePerUnitFromParams,
-              discounts: discountsFromParams,
-              // Availability dates
-              availability_start_date: startDateFromParams || null,
-              availability_end_date: endDateFromParams || null,
-              excluded_dates: excludedDatesFromParams,
-              // Approval status - defaults to false, needs admin approval
-              approved: false,
-              user_id: userId,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            });
-
-            const newListingId = listingRef.id;
-            setListingId(newListingId);
-            setListingSaved(true);
-
-            // Clear localStorage after saving
-            localStorage.removeItem("venue_description");
-            localStorage.removeItem("venue_features");
-
-            resolve(newListingId);
-          } catch (err) {
-            const errorMessage =
-              err instanceof Error ? err.message : "An unexpected error occurred";
-            setState((prev) => ({
-              ...prev,
-              error: errorMessage,
-              creating: false,
-            }));
-            reject(err);
-          }
+          handleSaveListing(user.uid, currentState, resolve, reject);
         });
       });
     } catch (err) {
@@ -277,6 +149,151 @@ function SummaryPageContent() {
         creating: false,
       }));
       throw err;
+    }
+  }
+
+  async function handleSaveListing(
+    userId: string,
+    currentState: SummaryState,
+    resolve: (value: string) => void,
+    reject: (reason?: any) => void
+  ) {
+    try {
+      // Get data from query params (details page data)
+      const service = searchParams?.get("service") || "";
+      const category = searchParams?.get("category") || "";
+      const name = searchParams?.get("name") || "";
+      const address1 = searchParams?.get("address1") || "";
+      const address2 = searchParams?.get("address2") || "";
+      const country = searchParams?.get("country") || "";
+      const addressState = searchParams?.get("state") || "";
+      const city = searchParams?.get("city") || "";
+      const pincode = searchParams?.get("pincode") || "";
+      const googlePin = searchParams?.get("googlePin") || "";
+
+      // Get pricing data from query params (from step-6-booking) or use React state defaults
+      const unitFromParams = searchParams?.get("unit") || currentState.unit || "night";
+      const pricePerUnitFromParams = Number(searchParams?.get("pricePerUnit")) || currentState.pricePerUnit || 0;
+      const discountsFromParams = searchParams?.get("discounts") 
+        ? JSON.parse(searchParams.get("discounts")!) 
+        : (currentState.discounts || []);
+      
+      // Get availability dates from query params
+      const startDateFromParams = searchParams?.get("startDate") || currentState.startDate || "";
+      const endDateFromParams = searchParams?.get("endDate") || currentState.endDate || "";
+      const excludedDatesFromParams = searchParams?.get("excludedDates")?.split(",").filter(Boolean) || currentState.excludedDates || [];
+
+      // Get data from localStorage
+      const description = localStorage.getItem("venue_description") || "";
+      const featuresStr = localStorage.getItem("venue_features") || "{}";
+      const features = JSON.parse(featuresStr);
+
+      // Fetch gallery images for this user filtered by service type AND category
+      const galleryRef = collection(db, "venue_gallery");
+      let galleryQuery;
+      let images: string[] = [];
+      
+      if (category) {
+        // First try to get images filtered by both service_type and category
+        galleryQuery = query(
+          galleryRef, 
+          where("user_id", "==", userId),
+          where("service_type", "==", service),
+          where("category", "==", category)
+        );
+        const gallerySnap = await getDocs(galleryQuery);
+        gallerySnap.docs.forEach((doc) => {
+          const data = doc.data();
+          if (data.url) {
+            images.push(data.url);
+          }
+        });
+        
+        // If no images found with category filter (backward compatibility for old images),
+        // fall back to service_type only
+        if (images.length === 0) {
+          galleryQuery = query(
+            galleryRef, 
+            where("user_id", "==", userId),
+            where("service_type", "==", service)
+          );
+          const fallbackSnap = await getDocs(galleryQuery);
+          fallbackSnap.docs.forEach((doc) => {
+            const data = doc.data();
+            if (data.url) {
+              images.push(data.url);
+            }
+          });
+        }
+      } else {
+        // If no category, just filter by service_type
+        galleryQuery = query(
+          galleryRef, 
+          where("user_id", "==", userId),
+          where("service_type", "==", service)
+        );
+        const gallerySnap = await getDocs(galleryQuery);
+        gallerySnap.docs.forEach((doc) => {
+          const data = doc.data();
+          if (data.url) {
+            images.push(data.url);
+          }
+        });
+      }
+
+      if (images.length === 0) {
+        throw new Error("Please upload at least one image before submitting.");
+      }
+
+      // Save the complete listing
+      const listingRef = await addDoc(collection(db, "listings"), {
+        service_type: service, // venue, decorator, caterer, dj, photographer
+        category,
+        name,
+        description,
+        address: {
+          address1,
+          address2,
+          country,
+          state: addressState,
+          city,
+          pincode,
+          googlePin,
+        },
+        features,
+        images,
+        unit: unitFromParams,
+        price_per_unit: pricePerUnitFromParams,
+        discounts: discountsFromParams,
+        // Availability dates
+        availability_start_date: startDateFromParams || null,
+        availability_end_date: endDateFromParams || null,
+        excluded_dates: excludedDatesFromParams,
+        // Approval status - defaults to false, needs admin approval
+        approved: false,
+        user_id: userId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      const newListingId = listingRef.id;
+      setListingId(newListingId);
+      setListingSaved(true);
+
+      // Clear localStorage after saving
+      localStorage.removeItem("venue_description");
+      localStorage.removeItem("venue_features");
+
+      resolve(newListingId);
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "An unexpected error occurred";
+      setState((prev) => ({
+        ...prev,
+        error: errorMessage,
+        creating: false,
+      }));
+      reject(err);
     }
   }
 
@@ -297,76 +314,23 @@ function SummaryPageContent() {
 
       // Get authenticated user
       return new Promise<void>((resolve, reject) => {
-        onAuthStateChanged(auth, async (user) => {
+        // Check if user is already authenticated first
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          // User is already authenticated, proceed directly
+          handleConfirmBooking(currentUser.uid, currentListingId, resolve, reject);
+          return;
+        }
+
+        // If not authenticated, wait for auth state change
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+          unsubscribe(); // Unsubscribe after first call
           if (!user) {
             reject(new Error("User not authenticated. Please log in first."));
             return;
           }
 
-          const userId = user.uid;
-
-          try {
-            // Create booking (optional - only if booking details provided)
-            if (state.startDate && state.endDate && state.pricePerUnit > 0) {
-              const bookingRef = await addDoc(collection(db, "bookings"), {
-                listing_id: currentListingId,
-                user_id: userId,
-                start_date: state.startDate,
-                end_date: state.endDate,
-                excluded_dates: state.excludedDates.length
-                  ? state.excludedDates
-                  : null,
-                unit: state.unit,
-                price_per_unit: state.pricePerUnit,
-                total_units: unitsCount,
-                subtotal,
-                discount_amount: discountAmount,
-                commission_amount: commission,
-                service_fee: serviceFee,
-                total_amount: total,
-                status: "pending",
-                service_type: searchParams?.get("service") || undefined,
-                created_at: new Date().toISOString(),
-              });
-
-            const bookingId = bookingRef.id;
-
-            // Payment gateway integration is pending
-            // Skip payment for now and show message
-            alert(
-              `Service listing and booking created successfully!\n\n` +
-              `Booking ID: ${bookingId}\n` +
-              `Total Amount: ₹${total.toLocaleString("en-IN")}\n\n` +
-              `Note: Payment gateway integration is yet to be added. Your booking has been saved and will be processed once payment is integrated.`
-            );
-            } else {
-              alert("Service listing created successfully!");
-            }
-
-            setState((prev) => ({
-              ...prev,
-              creating: false,
-            }));
-            
-            // Mark step 7 as complete before navigating
-            markStepComplete(STEPS.SUMMARY);
-            
-            // Clear the session after successful completion
-            clearSession();
-            
-            router.push("/");
-            resolve();
-          } catch (err) {
-            const errorMessage =
-              err instanceof Error ? err.message : "An unexpected error occurred";
-            setState((prev) => ({
-              ...prev,
-              error: errorMessage,
-              creating: false,
-            }));
-            alert(errorMessage);
-            reject(err);
-          }
+          handleConfirmBooking(user.uid, currentListingId, resolve, reject);
         });
       });
     } catch (err) {
@@ -378,6 +342,76 @@ function SummaryPageContent() {
         creating: false,
       }));
       alert(errorMessage);
+    }
+  }
+
+  async function handleConfirmBooking(
+    userId: string,
+    currentListingId: string,
+    resolve: () => void,
+    reject: (reason?: any) => void
+  ) {
+    try {
+      // Create booking (optional - only if booking details provided)
+      if (state.startDate && state.endDate && state.pricePerUnit > 0) {
+        const bookingRef = await addDoc(collection(db, "bookings"), {
+          listing_id: currentListingId,
+          user_id: userId,
+          start_date: state.startDate,
+          end_date: state.endDate,
+          excluded_dates: state.excludedDates.length
+            ? state.excludedDates
+            : null,
+          unit: state.unit,
+          price_per_unit: state.pricePerUnit,
+          total_units: unitsCount,
+          subtotal,
+          discount_amount: discountAmount,
+          commission_amount: commission,
+          service_fee: serviceFee,
+          total_amount: total,
+          status: "pending",
+          service_type: searchParams?.get("service") || undefined,
+          created_at: new Date().toISOString(),
+        });
+
+        const bookingId = bookingRef.id;
+
+        // Payment gateway integration is pending
+        // Skip payment for now and show message
+        alert(
+          `Service listing and booking created successfully!\n\n` +
+          `Booking ID: ${bookingId}\n` +
+          `Total Amount: ₹${total.toLocaleString("en-IN")}\n\n` +
+          `Note: Payment gateway integration is yet to be added. Your booking has been saved and will be processed once payment is integrated.`
+        );
+      } else {
+        alert("Service listing created successfully!");
+      }
+
+      setState((prev) => ({
+        ...prev,
+        creating: false,
+      }));
+      
+      // Mark step 7 as complete before navigating
+      markStepComplete(STEPS.SUMMARY);
+      
+      // Clear the session after successful completion
+      clearSession();
+      
+      router.push("/");
+      resolve();
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "An unexpected error occurred";
+      setState((prev) => ({
+        ...prev,
+        error: errorMessage,
+        creating: false,
+      }));
+      alert(errorMessage);
+      reject(err);
     }
   }
 
