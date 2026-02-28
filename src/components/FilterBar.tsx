@@ -305,6 +305,7 @@ export default function FilterBar({
               onChange={setEndDateStr}
               placeholder="dd/mm/yyyy"
               minDate={startDateStr ? new Date(startDateStr) : new Date()}
+              alignRight={true}
             />
           </div>
         </div>

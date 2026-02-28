@@ -10,6 +10,7 @@ interface DatePickerProps {
   placeholder?: string;
   minDate?: Date;
   maxDate?: Date;
+  alignRight?: boolean; // If true, calendar opens aligned to right edge (opens on left)
 }
 
 export default function DatePicker({ 
@@ -17,7 +18,8 @@ export default function DatePicker({
   onChange, 
   placeholder = "Select date",
   minDate,
-  maxDate 
+  maxDate,
+  alignRight = false
 }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -104,7 +106,7 @@ export default function DatePicker({
 
       {/* Calendar Popup */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-2 z-50 bg-zinc-900/98 backdrop-blur-xl border border-zinc-700 rounded-xl shadow-2xl p-3 w-[280px] sm:w-[300px]">
+        <div className={`absolute top-full mt-2 z-50 bg-zinc-900/98 backdrop-blur-xl border border-zinc-700 rounded-xl shadow-2xl p-3 w-[280px] sm:w-[300px] ${alignRight ? 'right-0' : 'left-0'}`}>
           {/* Header */}
           <div className="flex items-center justify-between mb-3">
             <button
