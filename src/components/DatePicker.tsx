@@ -104,36 +104,36 @@ export default function DatePicker({
 
       {/* Calendar Popup */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-2 z-50 bg-zinc-900/98 backdrop-blur-xl border border-zinc-700 rounded-xl shadow-2xl p-6 w-[420px] sm:w-[450px]">
+        <div className="absolute top-full left-0 mt-2 z-50 bg-zinc-900/98 backdrop-blur-xl border border-zinc-700 rounded-xl shadow-2xl p-3 w-[280px] sm:w-[300px]">
           {/* Header */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-3">
             <button
               onClick={goToPreviousMonth}
-              className="p-2 rounded-lg hover:bg-zinc-800 transition-colors"
+              className="p-1 rounded-lg hover:bg-zinc-800 transition-colors"
               aria-label="Previous month"
             >
-              <ChevronLeft size={20} className="text-zinc-300" />
+              <ChevronLeft size={16} className="text-zinc-300" />
             </button>
             
-            <h3 className="text-lg font-bold text-white">
+            <h3 className="text-sm font-bold text-white">
               {format(currentMonth, "MMMM yyyy")}
             </h3>
             
             <button
               onClick={goToNextMonth}
-              className="p-2 rounded-lg hover:bg-zinc-800 transition-colors"
+              className="p-1 rounded-lg hover:bg-zinc-800 transition-colors"
               aria-label="Next month"
             >
-              <ChevronRight size={20} className="text-zinc-300" />
+              <ChevronRight size={16} className="text-zinc-300" />
             </button>
           </div>
 
           {/* Week Days */}
-          <div className="grid grid-cols-7 gap-2 mb-3">
+          <div className="grid grid-cols-7 gap-1 mb-2">
             {weekDays.map((day) => (
               <div
                 key={day}
-                className="text-sm text-zinc-300 font-semibold text-center py-2"
+                className="text-xs text-zinc-300 font-semibold text-center py-1"
               >
                 {day}
               </div>
@@ -141,7 +141,7 @@ export default function DatePicker({
           </div>
 
           {/* Calendar Grid */}
-          <div className="grid grid-cols-7 gap-2">
+          <div className="grid grid-cols-7 gap-1">
             {days.map((day) => {
               const isCurrentMonth = isSameMonth(day, currentMonth);
               const isSelected = selectedDate && isSameDay(day, selectedDate);
@@ -162,7 +162,7 @@ export default function DatePicker({
                   onClick={() => handleDateSelect(day)}
                   disabled={isDisabled}
                   className={`
-                    aspect-square rounded-xl text-base font-medium transition-all
+                    aspect-square rounded-lg text-xs font-medium transition-all
                     ${!isCurrentMonth ? "text-zinc-500" : "text-zinc-100"}
                     ${isSelected 
                       ? "bg-blue-600 text-white font-bold shadow-lg shadow-blue-500/50 scale-105" 
@@ -180,16 +180,16 @@ export default function DatePicker({
           </div>
 
           {/* Footer Actions */}
-          <div className="flex items-center justify-between mt-6 pt-4 border-t border-zinc-700">
+          <div className="flex items-center justify-between mt-3 pt-3 border-t border-zinc-700">
             <button
               onClick={handleClear}
-              className="text-sm text-zinc-400 hover:text-white transition-colors px-4 py-2 rounded-lg hover:bg-zinc-800 font-medium"
+              className="text-xs text-zinc-400 hover:text-white transition-colors px-3 py-1 rounded-lg hover:bg-zinc-800 font-medium"
             >
               Clear
             </button>
             <button
               onClick={goToToday}
-              className="text-sm text-blue-400 hover:text-blue-300 transition-colors px-4 py-2 rounded-lg hover:bg-blue-500/10 font-semibold"
+              className="text-xs text-blue-400 hover:text-blue-300 transition-colors px-3 py-1 rounded-lg hover:bg-blue-500/10 font-semibold"
             >
               Today
             </button>
